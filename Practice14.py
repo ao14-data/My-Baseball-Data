@@ -765,9 +765,9 @@ with tab3:
           cnt = int(val)
           if total_pitches > 0:
             pct = (cnt / total_pitches) * 100
-            row_texts.append(f"{cnt}球\n({pct:.1f}%)")
+            row_texts.append(f"{pct:.1f}%")
           else:
-            row_texts.append(f"{cnt}球\n(0.0%)")
+            row_texts.append("0.0%")
         text_matrix.append(row_texts)
 
       x_vals = [1, 2, 3, 4, 5]
