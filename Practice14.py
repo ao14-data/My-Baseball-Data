@@ -1,0 +1,807 @@
+import os
+import re
+from datetime import date
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+# --- ページ基本設定 ---
+st.set_page_config(
+    page_title="データ分析＋α",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# CSVファイルのパス
+CSV_FILE = "baseball_data.csv"
+
+
+# --- 初期データの生成／読み込み ---
+def load_or_init_data():
+  if not os.path.exists(CSV_FILE):
+    initial_data = pd.DataFrame([
+        {
+            "日付": "2026-10-18",
+            "試合ID": "公式戦",
+            "投手名": "あお",
+            "打者名": "鈴木",
+            "打者左右": "R",
+            "ボール": 0,
+            "ストライク": 0,
+            "アウト数": 0,
+            "球種": "ストレート",
+            "コース": 13,
+            "結果": "空振り",
+        },
+        {
+            "日付": "2026-10-18",
+            "試合ID": "公式戦",
+            "投手名": "あお",
+            "打者名": "鈴木",
+            "打者左右": "R",
+            "ボール": 0,
+            "ストライク": 1,
+            "アウト数": 0,
+            "球種": "スライダー",
+            "コース": 18,
+            "結果": "ボール",
+        },
+        {
+            "日付": "2026-10-18",
+            "試合ID": "公式戦",
+            "投手名": "あお",
+            "打者名": "鈴木",
+            "打者左右": "R",
+            "ボール": 1,
+            "ストライク": 1,
+            "アウト数": 0,
+            "球種": "カーブ",
+            "コース": 8,
+            "結果": "見逃しストライク",
+        },
+        {
+            "日付": "2026-10-18",
+            "試合ID": "公式戦",
+            "投手名": "あお",
+            "打者名": "佐藤",
+            "打者左右": "L",
+            "ボール": 0,
+            "ストライク": 0,
+            "アウト数": 1,
+            "球種": "カットボール",
+            "コース": 12,
+            "結果": "安打 (単打)",
+        },
+    ])
+    initial_data.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
+
+  df = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
+
+  if "日付" not in df.columns:
+    df.insert(0, "日付", str(date.today()))
+    df.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
+
+  return df
+
+
+# データ読み込み
+df_data = load_or_init_data()
+
+# --- タイトル ---
+st.title("⚾ データ分析＋α")
+
+# タブの作成
+tab1, tab2, tab3 = st.tabs([
+    "📝 データ入力",
+    "🗂️ 打席一覧・1球データ詳細",
+    "🔥 配球ヒートマップ分析",
+])
+
+
+# ==========================================
+# 【タブ1】データ入力フォーム
+# ==========================================
+with tab1:
+  today = date.today()
+
+  # --- セッション状態の初期化 ---
+  if "year" not in st.session_state:
+    st.session_state.year = today.year
+  if "month" not in st.session_state:
+    st.session_state.month = today.month
+  if "day" not in st.session_state:
+    st.session_state.day = today.day
+
+  if "game_id" not in st.session_state:
+    st.session_state.game_id = "公式戦"
+  if "pitcher_name" not in st.session_state:
+    st.session_state.pitcher_name = "あお"
+
+  if "lineup" not in st.session_state:
+    st.session_state.lineup = [
+        {"name": "鈴木", "side": "R"},
+        {"name": "佐藤", "side": "L"},
+        {"name": "高橋", "side": "R"},
+        {"name": "田中", "side": "R"},
+        {"name": "伊藤", "side": "L"},
+        {"name": "渡辺", "side": "R"},
+        {"name": "山本", "side": "L"},
+        {"name": "中村", "side": "R"},
+        {"name": "小林", "side": "R"},
+    ]
+  if "lineup_index" not in st.session_state:
+    st.session_state.lineup_index = 0
+
+  if "selected_course" not in st.session_state:
+    st.session_state.selected_course = 13
+  if "balls" not in st.session_state:
+    st.session_state.balls = 0
+  if "strikes" not in st.session_state:
+    st.session_state.strikes = 0
+
+  # ストライクゾーン（縦2〜4、横2〜4の9マス：コース7, 8, 9, 12, 13, 14, 17, 18, 19）
+  strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
+
+  # --- 1. 基本情報＆カウント ---
+  top_col1, top_col2, top_col3, top_col4 = st.columns([2.5, 2, 2, 1.5])
+
+  with top_col1:
+    st.caption("📅 試合日")
+    d_c1, d_c2, d_c3 = st.columns(3)
+    years = list(range(2024, 2031))
+    year_idx = (
+        years.index(st.session_state.year)
+        if st.session_state.year in years
+        else years.index(today.year)
+    )
+    selected_year = d_c1.selectbox(
+        "年", years, index=year_idx, label_visibility="collapsed"
+    )
+
+    months = list(range(1, 13))
+    month_idx = (
+        months.index(st.session_state.month)
+        if st.session_state.month in months
+        else months.index(today.month)
+    )
+    selected_month = d_c2.selectbox(
+        "月", months, index=month_idx, label_visibility="collapsed"
+    )
+
+    days = list(range(1, 32))
+    day_idx = (
+        days.index(st.session_state.day)
+        if st.session_state.day in days
+        else days.index(today.day)
+    )
+    selected_day = d_c3.selectbox(
+        "日", days, index=day_idx, label_visibility="collapsed"
+    )
+
+    try:
+      formatted_date = date(selected_year, selected_month, selected_day)
+    except ValueError:
+      formatted_date = date(selected_year, selected_month, 28)
+
+    st.session_state.year = selected_year
+    st.session_state.month = selected_month
+    st.session_state.day = selected_day
+
+  with top_col2:
+    raw_game_id = st.text_input("試合名", value=st.session_state.game_id)
+    st.session_state.game_id = raw_game_id.strip() or "公式戦"
+
+  with top_col3:
+    raw_pitcher_name = st.text_input(
+        "投手名", value=st.session_state.pitcher_name
+    )
+    st.session_state.pitcher_name = raw_pitcher_name.strip() or "あお"
+
+  with top_col4:
+    count_options = [
+        "0-0",
+        "1-0",
+        "2-0",
+        "3-0",
+        "0-1",
+        "1-1",
+        "2-1",
+        "3-1",
+        "0-2",
+        "1-2",
+        "2-2",
+        "3-2",
+    ]
+    current_count_str = f"{st.session_state.balls}-{st.session_state.strikes}"
+    default_index = (
+        count_options.index(current_count_str)
+        if current_count_str in count_options
+        else 0
+    )
+    selected_count = st.selectbox(
+        "カウント", count_options, index=default_index
+    )
+
+    b_str, s_str = selected_count.split("-")
+    st.session_state.balls = int(b_str)
+    st.session_state.strikes = int(s_str)
+
+  # --- 2. スタメン編集 ---
+  with st.expander("👥 スタメン（1〜9番）編集 & 基本打席設定", expanded=False):
+    new_lineup = []
+    l_cols = st.columns(3)
+    for i in range(9):
+      with l_cols[i % 3]:
+        p_info = st.session_state.lineup[i]
+        c1, c2 = st.columns([2, 1])
+        raw_name = c1.text_input(
+            f"{i+1}番打者", value=p_info["name"], key=f"player_name_{i}"
+        )
+        p_side = c2.radio(
+            f"打順{i+1}打席",
+            ["R", "L", "S"],
+            index=["R", "L", "S"].index(p_info["side"]),
+            key=f"player_side_{i}",
+            horizontal=True,
+        )
+        clean_name = raw_name.strip() or f"打者{i+1}"
+        new_lineup.append({"name": clean_name, "side": p_side})
+
+    st.session_state.lineup = new_lineup
+
+  # --- 3. 打撃・投球詳細 ---
+  mid_col1, mid_col2, mid_col3, mid_col4 = st.columns([2.5, 1.5, 2, 2])
+
+  with mid_col1:
+    lineup_labels = [
+        f"{i+1}番: {p['name']} ({p['side']}打ち)"
+        for i, p in enumerate(st.session_state.lineup)
+    ]
+
+    selected_lineup_idx = st.selectbox(
+        "現在の打者を選択",
+        range(9),
+        format_func=lambda i: lineup_labels[i],
+        index=st.session_state.lineup_index,
+        key="batter_select_box",
+    )
+
+    if selected_lineup_idx != st.session_state.lineup_index:
+      st.session_state.lineup_index = selected_lineup_idx
+      selected_p = st.session_state.lineup[selected_lineup_idx]
+      st.session_state.current_batter_side = (
+          "L" if selected_p["side"] == "L" else "R"
+      )
+      st.rerun()
+
+    active_player = st.session_state.lineup[st.session_state.lineup_index]
+    st.session_state.batter_name = active_player["name"]
+
+  with mid_col2:
+    default_side = "L" if active_player["side"] == "L" else "R"
+    side_options = ["R", "L"]
+
+    if "current_batter_side" not in st.session_state:
+      st.session_state.current_batter_side = default_side
+
+    side_idx = (
+        side_options.index(st.session_state.current_batter_side)
+        if st.session_state.current_batter_side in side_options
+        else side_options.index(default_side)
+    )
+
+    batter_side = st.radio(
+        "打席", side_options, index=side_idx, horizontal=True
+    )
+    st.session_state.current_batter_side = batter_side
+
+  with mid_col3:
+    standard_pitch_types = [
+        "ストレート",
+        "カーブ",
+        "スライダー",
+        "カットボール",
+        "フォーク",
+        "チェンジアップ",
+        "シンカー",
+        "シュート",
+        "その他（自由入力）",
+    ]
+    selected_p_type = st.selectbox("球種", standard_pitch_types)
+
+    if selected_p_type == "その他（自由入力）":
+      raw_custom_pitch = st.text_input(
+          "球種名を入力", value="ツーシーム", key="custom_pitch"
+      )
+      pitch_type = raw_custom_pitch.strip() or "その他"
+    else:
+      pitch_type = selected_p_type
+
+  with mid_col4:
+    is_curr_strike = st.session_state.selected_course in strike_zones
+
+    base_result_options = [
+        "ボール",
+        "見逃しストライク",
+        "空振り",
+        "ファウル",
+        "安打 (単打)",
+        "長打",
+        "ゴロアウト",
+        "フライアウト",
+        "空振り三振",
+        "見逃し三振",
+        "四球",
+        "死球",
+    ]
+
+    filtered_result_options = []
+    for opt in base_result_options:
+      if st.session_state.balls == 3 and opt == "ボール":
+        continue
+      if st.session_state.strikes == 2 and opt in [
+          "見逃しストライク",
+          "空振り",
+      ]:
+        continue
+      filtered_result_options.append(opt)
+
+    if is_curr_strike:
+      default_target = (
+          "見逃し三振" if st.session_state.strikes == 2 else "見逃しストライク"
+      )
+    else:
+      default_target = "四球" if st.session_state.balls == 3 else "ボール"
+
+    default_result_idx = (
+        filtered_result_options.index(default_target)
+        if default_target in filtered_result_options
+        else 0
+    )
+
+    result = st.selectbox(
+        "結果", filtered_result_options, index=default_result_idx
+    )
+
+  st.divider()
+
+  # --- 4. 25分割コース選択グリッド ---
+  st.markdown("▼ **コース選択（赤：ストライク / 青：ボール）**")
+
+  grid_col, btn_col = st.columns([3, 2])
+
+  with grid_col:
+    for r in range(5):
+      cols = st.columns(5)
+      for c in range(5):
+        zone_num = r * 5 + c + 1
+        is_selected = zone_num == st.session_state.selected_course
+        label = f"★{zone_num}" if is_selected else f"{zone_num}"
+
+        if cols[c].button(
+            label, key=f"c_btn_{zone_num}", use_container_width=True
+        ):
+          st.session_state.selected_course = zone_num
+          st.rerun()
+
+  with btn_col:
+    zone_label = "ストライク" if is_curr_strike else "ボール"
+    st.markdown(
+        f"📍 選択中: **{st.session_state.selected_course} 番** ({zone_label})"
+    )
+
+  st.divider()
+
+  # --- 5. 登録ボタン ---
+  if st.button("💾 この投球を登録して次へ", use_container_width=True):
+    current_b = st.session_state.balls
+    current_s = st.session_state.strikes
+
+    new_data = pd.DataFrame([{
+        "日付": str(formatted_date),
+        "試合ID": st.session_state.game_id,
+        "投手名": st.session_state.pitcher_name,
+        "打者名": st.session_state.batter_name,
+        "打者左右": batter_side,
+        "ボール": current_b,
+        "ストライク": current_s,
+        "アウト数": 0,
+        "球種": pitch_type,
+        "コース": st.session_state.selected_course,
+        "結果": result,
+    }])
+
+    new_data.to_csv(
+        CSV_FILE, mode="a", header=False, index=False, encoding="utf-8-sig"
+    )
+
+    is_at_bat_over = False
+
+    if result == "ボール":
+      if current_b < 3:
+        st.session_state.balls += 1
+      else:
+        st.session_state.balls = 0
+        st.session_state.strikes = 0
+        is_at_bat_over = True
+    elif result in ["見逃しストライク", "空振り"]:
+      if current_s < 2:
+        st.session_state.strikes += 1
+      else:
+        st.session_state.balls = 0
+        st.session_state.strikes = 0
+        is_at_bat_over = True
+    elif result == "ファウル":
+      if current_s < 2:
+        st.session_state.strikes += 1
+    else:
+      st.session_state.balls = 0
+      st.session_state.strikes = 0
+      is_at_bat_over = True
+
+    if is_at_bat_over:
+      next_index = (st.session_state.lineup_index + 1) % 9
+      st.session_state.lineup_index = next_index
+      next_player = st.session_state.lineup[next_index]
+      st.session_state.current_batter_side = (
+          "L" if next_player["side"] == "L" else "R"
+      )
+
+    st.success(f"✅ 登録完了！ ({formatted_date})")
+    st.rerun()
+
+
+# ==========================================
+# 共通関数: 統合フィルターパネル
+# ==========================================
+def render_comprehensive_filter(df, key_prefix="filter"):
+  st.markdown("##### 🔍 絞り込みフィルター条件")
+
+  df["日付_dt"] = pd.to_datetime(df["日付"], errors="coerce")
+  min_date = df["日付_dt"].min().date() if not df.empty else date.today()
+  max_date = df["日付_dt"].max().date() if not df.empty else date.today()
+
+  col_d1, col_d2 = st.columns(2)
+  with col_d1:
+    start_date = st.date_input(
+        "開始日", value=min_date, key=f"{key_prefix}_start"
+    )
+  with col_d2:
+    end_date = st.date_input("終了日", value=max_date, key=f"{key_prefix}_end")
+
+  date_mask = (df["日付_dt"].dt.date >= start_date) & (
+      df["日付_dt"].dt.date <= end_date
+  )
+  filtered_df = df[date_mask].drop(columns=["日付_dt"])
+
+  f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+
+  with f_col1:
+    games = ["すべて"] + sorted(list(df["試合ID"].dropna().unique()))
+    selected_game = st.selectbox("試合名", games, key=f"{key_prefix}_game")
+
+    pitchers = ["すべて"] + sorted(list(df["投手名"].dropna().unique()))
+    selected_pitcher = st.selectbox(
+        "投手名", pitchers, key=f"{key_prefix}_pitcher"
+    )
+
+  with f_col2:
+    batters = ["すべて"] + sorted(list(df["打者名"].dropna().unique()))
+    selected_batter = st.selectbox(
+        "打者名", batters, key=f"{key_prefix}_batter"
+    )
+
+    sides = ["すべて", "R", "L"]
+    selected_side = st.selectbox("打席", sides, key=f"{key_prefix}_side")
+
+  with f_col3:
+    df_temp = filtered_df.copy()
+    df_temp["カウント"] = (
+        df_temp["ボール"].astype(str)
+        + "-"
+        + df_temp["ストライク"].astype(str)
+    )
+    counts = ["すべて"] + sorted(list(df_temp["カウント"].unique()))
+    selected_count = st.selectbox(
+        "カウント", counts, key=f"{key_prefix}_count"
+    )
+
+    pitch_types = ["すべて"] + sorted(list(df["球種"].dropna().unique()))
+    selected_p_type = st.selectbox(
+        "球種", pitch_types, key=f"{key_prefix}_ptype"
+    )
+
+  with f_col4:
+    results = ["すべて"] + sorted(list(df["結果"].dropna().unique()))
+    selected_result = st.selectbox(
+        "投球結果", results, key=f"{key_prefix}_result"
+    )
+
+  if selected_game != "すべて":
+    filtered_df = filtered_df[filtered_df["試合ID"] == selected_game]
+  if selected_pitcher != "すべて":
+    filtered_df = filtered_df[filtered_df["投手名"] == selected_pitcher]
+  if selected_batter != "すべて":
+    filtered_df = filtered_df[filtered_df["打者名"] == selected_batter]
+  if selected_side != "すべて":
+    filtered_df = filtered_df[filtered_df["打者左右"] == selected_side]
+  if selected_count != "すべて":
+    filtered_df["temp_cnt"] = (
+        filtered_df["ボール"].astype(str)
+        + "-"
+        + filtered_df["ストライク"].astype(str)
+    )
+    filtered_df = filtered_df[filtered_df["temp_cnt"] == selected_count].drop(
+        columns=["temp_cnt"]
+    )
+  if selected_p_type != "すべて":
+    filtered_df = filtered_df[filtered_df["球種"] == selected_p_type]
+  if selected_result != "すべて":
+    filtered_df = filtered_df[filtered_df["結果"] == selected_result]
+
+  return filtered_df
+
+
+# ==========================================
+# 【タブ2】打席一覧・1球データ表示
+# ==========================================
+with tab2:
+  st.subheader("🗂️ 打席一覧・1球データ表示")
+
+  df_all = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
+
+  if df_all.empty:
+    st.info("登録されているデータはありません。")
+  else:
+    df_with_group = df_all.copy()
+    group_id = 0
+    df_with_group["group_id"] = 0
+
+    for i in range(len(df_with_group)):
+      if i > 0:
+        prev = df_with_group.iloc[i - 1]
+        curr = df_with_group.iloc[i]
+        if (
+            prev["試合ID"] != curr["試合ID"]
+            or prev["投手名"] != curr["投手名"]
+            or prev["打者名"] != curr["打者名"]
+            or prev["日付"] != curr["日付"]
+        ):
+          group_id += 1
+      df_with_group.iat[i, df_with_group.columns.get_loc("group_id")] = group_id
+
+    df_matched_pitches = render_comprehensive_filter(
+        df_with_group, key_prefix="tab2_filter"
+    )
+
+    if df_matched_pitches.empty:
+      st.info("指定されたフィルター条件に一致するデータはありません。")
+    else:
+      matched_group_ids = df_matched_pitches["group_id"].unique()
+      df_picked_at_bats = df_with_group[
+          df_with_group["group_id"].isin(matched_group_ids)
+      ]
+
+      ab_summary_list = []
+      for g_id, g_df in df_picked_at_bats.groupby("group_id"):
+        last_row = g_df.iloc[-1]
+        ab_summary_list.append({
+            "打席ID": g_id,
+            "日付": last_row["日付"],
+            "試合名": last_row["試合ID"],
+            "投手": last_row["投手名"],
+            "打者": last_row["打者名"],
+            "打順左右": last_row["打者左右"],
+            "投球数": len(g_df),
+            "最終結果": last_row["結果"],
+        })
+
+      df_ab_summary = pd.DataFrame(ab_summary_list)
+
+      st.markdown(
+          f"##### 📋 抽出された打席一覧（条件に合致する球が含まれる打席: **{len(df_ab_summary)}件**）"
+      )
+      st.dataframe(
+          df_ab_summary.drop(columns=["打席ID"]), use_container_width=True
+      )
+
+      st.divider()
+
+      st.markdown("#### 🔍 ピックアップされた打席を選択して詳細を確認")
+
+      ab_options = {}
+      for idx, row in df_ab_summary.iterrows():
+        label = f"[{row['日付']} {row['試合名']}] {row['投手']} vs {row['打者']} ({row['投球数']}球 - 最終結果: {row['最終結果']})"
+        ab_options[label] = row["打席ID"]
+
+      selected_ab_label = st.selectbox(
+          "詳細を見たい打席を選択", list(ab_options.keys())
+      )
+      selected_ab_id = ab_options[selected_ab_label]
+
+      selected_pitches = df_with_group[
+          df_with_group["group_id"] == selected_ab_id
+      ].copy()
+      selected_pitches["球数"] = [
+          f"{i+1}球目" for i in range(len(selected_pitches))
+      ]
+      selected_pitches["カウント(B-S)"] = (
+          selected_pitches["ボール"].astype(str)
+          + "-"
+          + selected_pitches["ストライク"].astype(str)
+      )
+
+      display_cols = ["球数", "カウント(B-S)", "球種", "コース", "結果"]
+      st.markdown(f"**【選択中の打席の全配球詳細】** `{selected_ab_label}`")
+      st.dataframe(selected_pitches[display_cols], use_container_width=True)
+
+      st.divider()
+
+      col_del1, col_del2 = st.columns(2)
+
+      with col_del1:
+        st.markdown("##### 🗑️ 選択中の打席を丸ごと削除")
+        if st.button("この打席のデータを削除", type="primary"):
+          df_real_updated = df_all.copy()
+          for _, r in selected_pitches.iterrows():
+            idx_match = df_real_updated[
+                (df_real_updated["日付"] == r["日付"])
+                & (df_real_updated["試合ID"] == r["試合ID"])
+                & (df_real_updated["投手名"] == r["投手名"])
+                & (df_real_updated["打者名"] == r["打者名"])
+                & (df_real_updated["コース"] == r["コース"])
+                & (df_real_updated["結果"] == r["結果"])
+            ].index
+            if not idx_match.empty:
+              df_real_updated = df_real_updated.drop(index=idx_match[0])
+
+          df_real_updated.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
+          st.success("指定した打席のデータを削除しました。")
+          st.rerun()
+
+      with col_del2:
+        st.markdown("##### ⚠️ 全データの一括クリア")
+        confirm_clear = st.checkbox(
+            "全データをクリアすることを確認しました", key="ab_clear_check"
+        )
+        if st.button(
+            "全データを一括削除",
+            disabled=not confirm_clear,
+            key="ab_clear_btn",
+        ):
+          empty_df = pd.DataFrame(
+              columns=[
+                  "日付",
+                  "試合ID",
+                  "投手名",
+                  "打者名",
+                  "打者左右",
+                  "ボール",
+                  "ストライク",
+                  "アウト数",
+                  "球種",
+                  "コース",
+                  "結果",
+              ]
+          )
+          empty_df.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
+          st.success("すべてのデータをクリアしました。")
+          st.rerun()
+
+
+# ==========================================
+# 【タブ3】配球ヒートマップ分析 ＆ 各球種の投球割合集計
+# ==========================================
+with tab3:
+  st.subheader("🔥 25分割 配球ヒートマップ分析 ＆ 球種割合")
+
+  df_current = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
+
+  if df_current.empty:
+    st.warning("データがまだ登録されていません。")
+  else:
+    df_filtered = render_comprehensive_filter(
+        df_current, key_prefix="heatmap_filter"
+    )
+
+    if df_filtered.empty:
+      st.info("指定されたフィルター条件に一致する投球データはありません。")
+    else:
+      total_pitches = len(df_filtered)
+
+      st.divider()
+
+      # --- 各球種の投球割合 集計セクション ---
+      st.markdown("#### 📊 各球種の投球割合（集計）")
+
+      pitch_summary = (
+          df_filtered["球種"]
+          .value_counts()
+          .reset_index(name="投球数")
+      )
+      pitch_summary.columns = ["球種", "投球数"]
+      pitch_summary["割合 (%)"] = (
+          (pitch_summary["投球数"] / total_pitches) * 100
+      ).round(1)
+
+      sum_col1, sum_col2 = st.columns([1, 1.2])
+
+      with sum_col1:
+        st.dataframe(pitch_summary, use_container_width=True, hide_index=True)
+
+      with sum_col2:
+        fig_pie = go.Figure(
+            data=[
+                go.Pie(
+                    labels=pitch_summary["球種"],
+                    values=pitch_summary["投球数"],
+                    hole=0.4,
+                    textinfo="label+percent",
+                )
+            ]
+        )
+        fig_pie.update_layout(
+            title="球種割合グラフ",
+            margin=dict(t=30, b=10, l=10, r=10),
+            height=280,
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+      st.divider()
+
+      # --- ヒートマップ描画 ---
+      counts = np.zeros((5, 5))
+      for course_num in df_filtered["コース"]:
+        if 1 <= course_num <= 25:
+          r = (course_num - 1) // 5
+          c = (course_num - 1) % 5
+          counts[r, c] += 1
+
+      text_matrix = []
+      for r_idx, row in enumerate(counts):
+        row_texts = []
+        for c_idx, val in enumerate(row):
+          cnt = int(val)
+          if total_pitches > 0:
+            pct = (cnt / total_pitches) * 100
+            row_texts.append(f"{cnt}球\n({pct:.1f}%)")
+          else:
+            row_texts.append(f"{cnt}球\n(0.0%)")
+        text_matrix.append(row_texts)
+
+      x_vals = [1, 2, 3, 4, 5]
+      y_vals = [1, 2, 3, 4, 5]
+
+      fig = go.Figure(
+          data=go.Heatmap(
+              z=counts,
+              x=x_vals,
+              y=y_vals,
+              colorscale="Reds",
+              text=text_matrix,
+              texttemplate="%{text}",
+              textfont={"size": 14},
+          )
+      )
+
+      # 中央9マス（縦2〜4, 横2〜4）を正確に囲む黄色太線枠
+      fig.add_shape(
+          type="rect",
+          x0=1.5,
+          y0=1.5,
+          x1=4.5,
+          y1=4.5,
+          line=dict(color="yellow", width=5),
+          layer="above",
+      )
+
+      fig.update_yaxes(autorange="reversed", dtick=1)
+      fig.update_xaxes(dtick=1)
+
+      fig.update_layout(
+          title=f"投球コース分布 (条件合致 投球数: {total_pitches}球)",
+          xaxis_title="コース(横)",
+          yaxis_title="コース(縦)",
+      )
+      st.plotly_chart(fig, use_container_width=True)
