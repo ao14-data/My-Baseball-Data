@@ -489,12 +489,11 @@ with tab1:
 
 
 # ==========================================
-# 共通関数: 統合フィルターパネル（折りたたみ式に変更）
+# 共通関数: 統合フィルターパネル
 # ==========================================
 def render_comprehensive_filter(df, key_prefix="filter"):
   filtered_df = df.copy()
 
-  # 「絞り込み」ボタン（expander）で囲むことで、通常時は画面を占領しないようにする
   with st.expander("🔍 絞り込みフィルターを開く", expanded=False):
     df["日付_dt"] = pd.to_datetime(df["日付"], errors="coerce")
     min_date = df["日付_dt"].min().date() if not df.empty else date.today()
@@ -680,9 +679,17 @@ with tab2:
 
       col_del1, col_del2 = st.columns(2)
 
+      # --- 選択中の打席削除（2段階確認式） ---
       with col_del1:
         st.markdown("##### 🗑️ 選択中の打席を丸ごと削除")
-        if st.button("この打席のデータを削除", type="primary"):
+        confirm_ab_delete = st.checkbox(
+            "この打席の削除を確認する", key="ab_delete_check"
+        )
+        if st.button(
+            "選択中の打席データを削除実行",
+            type="primary",
+            disabled=not confirm_ab_delete,
+        ):
           df_real_updated = df_all.copy()
           for _, r in selected_pitches.iterrows():
             idx_match = df_real_updated[
@@ -700,13 +707,14 @@ with tab2:
           st.success("指定した打席のデータを削除しました。")
           st.rerun()
 
+      # --- 全データ削除（2段階確認式） ---
       with col_del2:
         st.markdown("##### ⚠️ 全データの一括クリア")
         confirm_clear = st.checkbox(
-            "全データをクリアすることを確認しました", key="ab_clear_check"
+            "全データ削除を確認する（復元不可）", key="ab_clear_check"
         )
         if st.button(
-            "全データを一括削除",
+            "全データ一括削除を実行",
             disabled=not confirm_clear,
             key="ab_clear_btn",
         ):
