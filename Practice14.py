@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- スマホ版でも5x5グリッドを強力に横並び固定するCSS ＆ 最上部スクロール用スクリプト ---
+# --- スマホ版でも5x5グリッドを強力に横並び固定するCSS ---
 st.markdown(
     """
     <style>
@@ -113,8 +113,7 @@ def load_or_init_data():
 # データ読み込み
 df_data = load_or_init_data()
 
-# --- タイトル（ここが画面の一番上） ---
-st.markdown('<div id="top-anchor"></div>', unsafe_allow_html=True)
+# --- タイトル ---
 st.title("⚾ データ分析＋α")
 
 # タブの作成
@@ -482,7 +481,12 @@ with tab1:
           "L" if next_player["side"] == "L" else "R"
       )
 
-    st.success(f"✅ 登録完了！ ({formatted_date})")
+    # 登録後の新しいカウント状態をわかりやすくメッセージに含める
+    new_b = st.session_state.balls
+    new_s = st.session_state.strikes
+    st.success(
+        f"✅ 登録完了しました！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
+    )
 
     # 登録完了時に画面の一番上にスクロールさせるJavaScript
     st.markdown(
@@ -591,7 +595,7 @@ def render_comprehensive_filter(df, key_prefix="filter"):
 
 
 # ==========================================
-# 【タブ2】打席一覧・1球データ詳細
+# 【タブ2】打席一覧・1球データ表示
 # ==========================================
 with tab2:
   st.subheader("🗂️ 打席一覧・1球データ詳細")
