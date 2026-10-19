@@ -13,14 +13,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- スマホ・PC両対応の最適化CSS ---
+# --- スマホ・PC両対応の最適化CSS（一番下の余白を多めに確保） ---
 st.markdown(
     """
     <style>
-    /* 画面全体のコンテナの余白調整 */
+    /* 画面全体のコンテナの上下パディング調整（下部にゆとりを持たせる） */
     .block-container {
         padding-top: 1.5rem !important;
-        padding-bottom: 3rem !important;
+        padding-bottom: 5rem !important;
     }
     
     /* カラムの間隔を整える */
@@ -134,7 +134,7 @@ tab1, tab2, tab3 = st.tabs([
     "📝 データ入力",
     "🗂️ 打席一覧・1球データ詳細",
     "🔥 配球ヒートマップ分析",
-] )
+])
 
 
 # ==========================================
@@ -409,7 +409,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 25分割コース選択グリッド ＆ 登録ボタンをセットで配置 ---
+  # --- ④ 25分割コース選択グリッド ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = "ストライクゾーン" if is_curr_strike else "ボールゾーン"
 
@@ -445,7 +445,7 @@ with tab1:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- ⑤ 登録ボタン（最優先で確実に目立たせて押しやすく配置） ---
+  # --- ⑤ 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", type="primary", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
@@ -515,6 +515,9 @@ with tab1:
         unsafe_allow_html=True,
     )
     st.rerun()
+
+  # --- ★ 登録ボタンの下にゆとり（余白）を持たせるためのスペース ---
+  st.markdown("<br><br><br>", unsafe_allow_html=True)
 
 
 # ==========================================
