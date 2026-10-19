@@ -167,7 +167,7 @@ with tab1:
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
-  # --- 1. 基本情報＆カウント ---
+  # --- 1. 基本情報 ＆ カウント（上部に移動） ---
   top_col1, top_col2, top_col3, top_col4 = st.columns([2.5, 2, 2, 1.5])
 
   with top_col1:
@@ -223,6 +223,7 @@ with tab1:
     st.session_state.pitcher_name = raw_pitcher_name.strip() or "あお"
 
   with top_col4:
+    # カウント選択を上部に移動
     count_options = [
         "0-0",
         "1-0",
@@ -282,7 +283,7 @@ with tab1:
         "L" if curr_active["side"] == "L" else "R"
     )
 
-  # --- 3. 打撃・投球詳細 ---
+  # --- 3. 打撃・投球詳細（現在の打者・打席を下部に移動） ---
   mid_col1, mid_col2, mid_col3, mid_col4 = st.columns([2.5, 1.5, 2, 2])
 
   with mid_col1:
@@ -679,7 +680,6 @@ with tab2:
 
       col_del1, col_del2 = st.columns(2)
 
-      # --- 選択中の打席削除（2段階確認式） ---
       with col_del1:
         st.markdown("##### 🗑️ 選択中の打席を丸ごと削除")
         confirm_ab_delete = st.checkbox(
@@ -707,7 +707,6 @@ with tab2:
           st.success("指定した打席のデータを削除しました。")
           st.rerun()
 
-      # --- 全データ削除（2段階確認式） ---
       with col_del2:
         st.markdown("##### ⚠️ 全データの一括クリア")
         confirm_clear = st.checkbox(
