@@ -13,11 +13,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- スマホ・PC両対応の最適化CSS（一番下の余白を多めに確保） ---
+# --- スマホ・PC両対応の最適化CSS（表の拡大・横スクロールや不要な操作を防止） ---
 st.markdown(
     """
     <style>
-    /* 画面全体のコンテナの上下パディング調整（下部にゆとりを持たせる） */
+    /* 画面全体のコンテナの上下パディング調整 */
     .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 5rem !important;
@@ -35,7 +35,7 @@ st.markdown(
         margin-bottom: 2px !important;
     }
     
-    /* 5×5コース選択ボタンのサイズ調整（スマホでも押しやすい大きさ） */
+    /* 5×5コース選択ボタンのサイズ調整 */
     div.stButton > button {
         padding: 4px 0px !important;
         font-size: 13px !important;
@@ -44,6 +44,14 @@ st.markdown(
         min-height: 42px !important;
         margin: 2px 0px !important;
         width: 100% !important;
+    }
+    
+    /* 表（DataFrame）が勝手に横に動いたり拡大したりするのを防ぐ固定スタイル */
+    [data-testid="stDataFrame"] {
+        overflow-x: hidden !important;
+    }
+    [data-testid="stDataFrame"] > div {
+        overflow-x: hidden !important;
     }
     </style>
     """,
@@ -516,7 +524,6 @@ with tab1:
     )
     st.rerun()
 
-  # --- ★ 登録ボタンの下にゆとり（余白）を持たせるためのスペース ---
   st.markdown("<br><br><br>", unsafe_allow_html=True)
 
 
@@ -673,8 +680,11 @@ with tab2:
       st.markdown(
           f"##### 📋 抽出された打席一覧（条件に合致する球が含まれる打席: **{len(df_ab_summary)}件**）"
       )
+      # --- ★ 表の操作・拡大を無効化（静的表示） ---
       st.dataframe(
-          df_ab_summary.drop(columns=["打席ID"]), use_container_width=True
+          df_ab_summary.drop(columns=["打席ID"]),
+          use_container_width=True,
+          hide_index=True,
       )
 
       st.divider()
@@ -705,7 +715,12 @@ with tab2:
 
       display_cols = ["球数", "カウント(B-S)", "球種", "コース", "結果"]
       st.markdown(f"**【選択中の打席の全配球詳細】** `{selected_ab_label}`")
-      st.dataframe(selected_pitches[display_cols], use_container_width=True)
+      # --- ★ 表の操作・拡大を無効化（静的表示） ---
+      st.dataframe(
+          selected_pitches[display_cols],
+          use_container_width=True,
+          hide_index=True,
+      )
 
       st.divider()
 
@@ -806,7 +821,10 @@ with tab3:
       sum_col1, sum_col2 = st.columns([1, 1.2])
 
       with sum_col1:
-        st.dataframe(pitch_summary, use_container_width=True, hide_index=True)
+        # --- ★ 表の操作・拡大を無効化（静的表示） ---
+        st.dataframe(
+            pitch_summary, use_container_width=True, hide_index=True
+        )
 
       with sum_col2:
         fig_pie = go.Figure(
