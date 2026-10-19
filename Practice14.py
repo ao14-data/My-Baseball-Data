@@ -802,7 +802,16 @@ with tab3:
             margin=dict(t=30, b=10, l=10, r=10),
             height=280,
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        # --- ★ 円グラフも固定（操作無効化） ---
+        st.plotly_chart(
+            fig_pie,
+            use_container_width=True,
+            config={
+                "scrollZoom": False,
+                "displayModeBar": False,
+                "staticPlot": True,
+            },
+        )
 
       st.divider()
 
@@ -861,7 +870,7 @@ with tab3:
           yaxis_title="コース(縦)",
       )
 
-      # --- ★ ズーム・パン・不要な操作を完全に無効化して固定する設定 ---
+      # --- ★ ヒートマップも固定（操作無効化） ---
       fig.update_xaxes(fixedrange=True)
       fig.update_yaxes(fixedrange=True)
 
