@@ -13,26 +13,42 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- スマホ版でも5x5グリッドを強力に横並び固定するCSS ---
+# --- スマホ画面でスクロールせずに収めるための超コンパクトCSS ---
 st.markdown(
     """
     <style>
-    /* Streamlitのカラム要素がスマホで縦並びになるのを防ぎ、5等分に強制作成 */
+    /* 画面全体の上下パディングを詰めてコンパクトに */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* カラムの間隔を詰める */
     [data-testid="column"] {
         min-width: 0px !important;
         flex: 1 1 0px !important;
         padding: 0px 1px !important;
     }
     
-    /* 5×5コース選択ボタンのデザイン最適化（選択中は色を変えて目立たせる） */
+    /* ウィジェット（セレクトボックス等）の上下余白を削減 */
+    div.stSelectbox, div.stTextInput, div.stRadio {
+        margin-bottom: -10px !important;
+    }
+    
+    /* 5×5コース選択ボタンをコンパクトに調整 */
     div.stButton > button {
-        padding: 2px 0px !important;
-        font-size: 12px !important;
+        padding: 1px 0px !important;
+        font-size: 11px !important;
         font-weight: bold !important;
-        height: 40px !important;
-        min-height: 40px !important;
+        height: 32px !important;
+        min-height: 32px !important;
         margin: 1px !important;
         width: 100% !important;
+    }
+    
+    /* 区切り線の余白を削減 */
+    hr {
+        margin: 0.5em 0px !important;
     }
     </style>
     """,
@@ -395,17 +411,13 @@ with tab1:
         "結果", filtered_result_options, index=default_result_idx
     )
 
-  st.divider()
+  st.markdown("<div style='margin-bottom: -10px;'></div>", unsafe_allow_html=True)
 
-  # --- ④ 25分割コース選択グリッド（改善版） ---
+  # --- ④ 25分割コース選択グリッド ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = "ストライクゾーン" if is_curr_strike else "ボールゾーン"
 
-  st.markdown("##### 🎯 コース選択（5×5 グリッド）")
-  st.info(
-      f"📍 選択中のコース: **【 {st.session_state.selected_course} 番 】** （"
-      f"**{zone_label}**）"
-  )
+  st.caption(f"📍 選択中: 【 {st.session_state.selected_course}番 】({zone_label})")
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
@@ -415,11 +427,10 @@ with tab1:
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
 
-      # 選択されているボタンは「primary（強調色）」にして一目でわかるようにする
       btn_type = "primary" if is_selected else "secondary"
 
       if is_selected:
-        label = f"★ {zone_num}"
+        label = f"★{zone_num}"
       elif zone_num in strike_zones_set:
         label = f"[{zone_num}]"
       else:
@@ -433,8 +444,6 @@ with tab1:
       ):
         st.session_state.selected_course = zone_num
         st.rerun()
-
-  st.divider()
 
   # --- ⑤ 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", use_container_width=True):
@@ -494,7 +503,7 @@ with tab1:
     new_b = st.session_state.balls
     new_s = st.session_state.strikes
     st.success(
-        f"✅ 登録完了しました！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
+        f"✅ 登録完了！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
     )
 
     st.markdown(
