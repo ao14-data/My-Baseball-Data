@@ -165,7 +165,6 @@ with tab1:
   if "strikes" not in st.session_state:
     st.session_state.strikes = 0
 
-  # ストライクゾーン（縦2〜4、横2〜4の9マス：コース7, 8, 9, 12, 13, 14, 17, 18, 19）
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
   # --- 1. 基本情報＆カウント ---
@@ -277,7 +276,6 @@ with tab1:
 
     st.session_state.lineup = new_lineup
 
-    # 現在選択されている打者の情報をスタメン編集内容と即時同期
     curr_active = st.session_state.lineup[st.session_state.lineup_index]
     st.session_state.batter_name = curr_active["name"]
     st.session_state.current_batter_side = (
@@ -292,8 +290,6 @@ with tab1:
         f"{i+1}番: {p['name']} ({p['side']}打ち)"
         for i, p in enumerate(st.session_state.lineup)
     ]
-
-    # ラインナップの文字列を組み合わせた一意のキーを作成することで、名前変更時にselectboxを強制再描画
     lineup_signature = "_".join(lineup_labels)
 
     selected_lineup_idx = st.selectbox(
@@ -403,7 +399,7 @@ with tab1:
 
   st.divider()
 
-  # --- 4. 25分割コース選択グリッド（スマホでも5x5固定） ---
+  # --- 4. 25分割コース選択グリッド ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = "ストライク" if is_curr_strike else "ボール"
   st.markdown(
@@ -493,92 +489,96 @@ with tab1:
 
 
 # ==========================================
-# 共通関数: 統合フィルターパネル
+# 共通関数: 統合フィルターパネル（折りたたみ式に変更）
 # ==========================================
 def render_comprehensive_filter(df, key_prefix="filter"):
-  st.markdown("##### 🔍 絞り込みフィルター条件")
+  filtered_df = df.copy()
 
-  df["日付_dt"] = pd.to_datetime(df["日付"], errors="coerce")
-  min_date = df["日付_dt"].min().date() if not df.empty else date.today()
-  max_date = df["日付_dt"].max().date() if not df.empty else date.today()
+  # 「絞り込み」ボタン（expander）で囲むことで、通常時は画面を占領しないようにする
+  with st.expander("🔍 絞り込みフィルターを開く", expanded=False):
+    df["日付_dt"] = pd.to_datetime(df["日付"], errors="coerce")
+    min_date = df["日付_dt"].min().date() if not df.empty else date.today()
+    max_date = df["日付_dt"].max().date() if not df.empty else date.today()
 
-  col_d1, col_d2 = st.columns(2)
-  with col_d1:
-    start_date = st.date_input(
-        "開始日", value=min_date, key=f"{key_prefix}_start"
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+      start_date = st.date_input(
+          "開始日", value=min_date, key=f"{key_prefix}_start"
+      )
+    with col_d2:
+      end_date = st.date_input(
+          "終了日", value=max_date, key=f"{key_prefix}_end"
+      )
+
+    date_mask = (df["日付_dt"].dt.date >= start_date) & (
+        df["日付_dt"].dt.date <= end_date
     )
-  with col_d2:
-    end_date = st.date_input("終了日", value=max_date, key=f"{key_prefix}_end")
+    filtered_df = df[date_mask].drop(columns=["日付_dt"])
 
-  date_mask = (df["日付_dt"].dt.date >= start_date) & (
-      df["日付_dt"].dt.date <= end_date
-  )
-  filtered_df = df[date_mask].drop(columns=["日付_dt"])
+    f_col1, f_col2, f_col3, f_col4 = st.columns(4)
 
-  f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+    with f_col1:
+      games = ["すべて"] + sorted(list(df["試合ID"].dropna().unique()))
+      selected_game = st.selectbox("試合名", games, key=f"{key_prefix}_game")
 
-  with f_col1:
-    games = ["すべて"] + sorted(list(df["試合ID"].dropna().unique()))
-    selected_game = st.selectbox("試合名", games, key=f"{key_prefix}_game")
+      pitchers = ["すべて"] + sorted(list(df["投手名"].dropna().unique()))
+      selected_pitcher = st.selectbox(
+          "投手名", pitchers, key=f"{key_prefix}_pitcher"
+      )
 
-    pitchers = ["すべて"] + sorted(list(df["投手名"].dropna().unique()))
-    selected_pitcher = st.selectbox(
-        "投手名", pitchers, key=f"{key_prefix}_pitcher"
-    )
+    with f_col2:
+      batters = ["すべて"] + sorted(list(df["打者名"].dropna().unique()))
+      selected_batter = st.selectbox(
+          "打者名", batters, key=f"{key_prefix}_batter"
+      )
 
-  with f_col2:
-    batters = ["すべて"] + sorted(list(df["打者名"].dropna().unique()))
-    selected_batter = st.selectbox(
-        "打者名", batters, key=f"{key_prefix}_batter"
-    )
+      sides = ["すべて", "R", "L"]
+      selected_side = st.selectbox("打席", sides, key=f"{key_prefix}_side")
 
-    sides = ["すべて", "R", "L"]
-    selected_side = st.selectbox("打席", sides, key=f"{key_prefix}_side")
+    with f_col3:
+      df_temp = filtered_df.copy()
+      df_temp["カウント"] = (
+          df_temp["ボール"].astype(str)
+          + "-"
+          + df_temp["ストライク"].astype(str)
+      )
+      counts = ["すべて"] + sorted(list(df_temp["カウント"].unique()))
+      selected_count = st.selectbox(
+          "カウント", counts, key=f"{key_prefix}_count"
+      )
 
-  with f_col3:
-    df_temp = filtered_df.copy()
-    df_temp["カウント"] = (
-        df_temp["ボール"].astype(str)
-        + "-"
-        + df_temp["ストライク"].astype(str)
-    )
-    counts = ["すべて"] + sorted(list(df_temp["カウント"].unique()))
-    selected_count = st.selectbox(
-        "カウント", counts, key=f"{key_prefix}_count"
-    )
+      pitch_types = ["すべて"] + sorted(list(df["球種"].dropna().unique()))
+      selected_p_type = st.selectbox(
+          "球種", pitch_types, key=f"{key_prefix}_ptype"
+      )
 
-    pitch_types = ["すべて"] + sorted(list(df["球種"].dropna().unique()))
-    selected_p_type = st.selectbox(
-        "球種", pitch_types, key=f"{key_prefix}_ptype"
-    )
+    with f_col4:
+      results = ["すべて"] + sorted(list(df["結果"].dropna().unique()))
+      selected_result = st.selectbox(
+          "投球結果", results, key=f"{key_prefix}_result"
+      )
 
-  with f_col4:
-    results = ["すべて"] + sorted(list(df["結果"].dropna().unique()))
-    selected_result = st.selectbox(
-        "投球結果", results, key=f"{key_prefix}_result"
-    )
-
-  if selected_game != "すべて":
-    filtered_df = filtered_df[filtered_df["試合ID"] == selected_game]
-  if selected_pitcher != "すべて":
-    filtered_df = filtered_df[filtered_df["投手名"] == selected_pitcher]
-  if selected_batter != "すべて":
-    filtered_df = filtered_df[filtered_df["打者名"] == selected_batter]
-  if selected_side != "すべて":
-    filtered_df = filtered_df[filtered_df["打者左右"] == selected_side]
-  if selected_count != "すべて":
-    filtered_df["temp_cnt"] = (
-        filtered_df["ボール"].astype(str)
-        + "-"
-        + filtered_df["ストライク"].astype(str)
-    )
-    filtered_df = filtered_df[filtered_df["temp_cnt"] == selected_count].drop(
-        columns=["temp_cnt"]
-    )
-  if selected_p_type != "すべて":
-    filtered_df = filtered_df[filtered_df["球種"] == selected_p_type]
-  if selected_result != "すべて":
-    filtered_df = filtered_df[filtered_df["結果"] == selected_result]
+    if selected_game != "すべて":
+      filtered_df = filtered_df[filtered_df["試合ID"] == selected_game]
+    if selected_pitcher != "すべて":
+      filtered_df = filtered_df[filtered_df["投手名"] == selected_pitcher]
+    if selected_batter != "すべて":
+      filtered_df = filtered_df[filtered_df["打者名"] == selected_batter]
+    if selected_side != "すべて":
+      filtered_df = filtered_df[filtered_df["打者左右"] == selected_side]
+    if selected_count != "すべて":
+      filtered_df["temp_cnt"] = (
+          filtered_df["ボール"].astype(str)
+          + "-"
+          + filtered_df["ストライク"].astype(str)
+      )
+      filtered_df = filtered_df[filtered_df["temp_cnt"] == selected_count].drop(
+          columns=["temp_cnt"]
+      )
+    if selected_p_type != "すべて":
+      filtered_df = filtered_df[filtered_df["球種"] == selected_p_type]
+    if selected_result != "すべて":
+      filtered_df = filtered_df[filtered_df["結果"] == selected_result]
 
   return filtered_df
 
@@ -843,5 +843,3 @@ with tab3:
           title=f"投球コース分布 (条件合致 投球数: {total_pitches}球)",
           xaxis_title="コース(横)",
           yaxis_title="コース(縦)",
-      )
-      st.plotly_chart(fig, use_container_width=True)
