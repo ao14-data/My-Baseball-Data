@@ -481,14 +481,12 @@ with tab1:
           "L" if next_player["side"] == "L" else "R"
       )
 
-    # 登録後の新しいカウント状態をわかりやすくメッセージに含める
     new_b = st.session_state.balls
     new_s = st.session_state.strikes
     st.success(
         f"✅ 登録完了しました！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
     )
 
-    # 登録完了時に画面の一番上にスクロールさせるJavaScript
     st.markdown(
         """
         <script>
@@ -595,7 +593,7 @@ def render_comprehensive_filter(df, key_prefix="filter"):
 
 
 # ==========================================
-# 【タブ2】打席一覧・1球データ表示
+# 【タブ2】打席一覧・1球データ詳細
 # ==========================================
 with tab2:
   st.subheader("🗂️ 打席一覧・1球データ詳細")
@@ -862,4 +860,17 @@ with tab3:
           xaxis_title="コース(横)",
           yaxis_title="コース(縦)",
       )
-      st.plotly_chart(fig, use_container_width=True)
+
+      # --- ★ ズーム・パン・不要な操作を完全に無効化して固定する設定 ---
+      fig.update_xaxes(fixedrange=True)
+      fig.update_yaxes(fixedrange=True)
+
+      st.plotly_chart(
+          fig,
+          use_container_width=True,
+          config={
+              "scrollZoom": False,
+              "displayModeBar": False,
+              "staticPlot": True,
+          },
+      )
