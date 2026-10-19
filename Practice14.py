@@ -13,6 +13,29 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# --- ★スマホ版でも5x5グリッドを保持するためのカスタムCSS ---
+st.markdown(
+    """
+    <style>
+    /* Streamlitのカラム要素がスマホで縦並びになるのを防ぎ、横並びを強制 */
+    [data-testid="column"] {
+        min-width: 0px !important;
+        flex: 1 1 0px !important;
+    }
+    
+    /* 5×5コース選択ボタンのスタイル調整（スマホでも崩れないように小さめにする） */
+    div.stButton > button {
+        padding: 4px 2px !important;
+        font-size: 13px !important;
+        height: auto !important;
+        min-height: 38px !important;
+        margin: 0px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # CSVファイルのパス
 CSV_FILE = "baseball_data.csv"
 
@@ -366,30 +389,35 @@ with tab1:
 
   st.divider()
 
-  # --- 4. 25分割コース選択グリッド ---
-  st.markdown("▼ **コース選択（赤：ストライク / 青：ボール）**")
+  # --- 4. 25分割コース選択グリッド（スマホでも5x5固定） ---
+  is_curr_strike = st.session_state.selected_course in strike_zones
+  zone_label = "ストライク" if is_curr_strike else "ボール"
+  st.markdown(
+      f"▼ **コース選択** （📍 選択中: **{st.session_state.selected_course} 番** - 【{zone_label}】）"
+  )
 
-  grid_col, btn_col = st.columns([3, 2])
+  # 中央9マス（ストライクゾーン）のコース番号一覧
+  strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  with grid_col:
-    for r in range(5):
-      cols = st.columns(5)
-      for c in range(5):
-        zone_num = r * 5 + c + 1
-        is_selected = zone_num == st.session_state.selected_course
-        label = f"★{zone_num}" if is_selected else f"{zone_num}"
+  for r in range(5):
+    cols = st.columns(5)
+    for c in range(5):
+      zone_num = r * 5 + c + 1
+      is_selected = zone_num == st.session_state.selected_course
 
-        if cols[c].button(
-            label, key=f"c_btn_{zone_num}", use_container_width=True
-        ):
-          st.session_state.selected_course = zone_num
-          st.rerun()
+      # 選択中・ストライクゾーン内・ボールゾーンでラベル表記を変えて視認性を強化
+      if is_selected:
+        label = f"★{zone_num}"
+      elif zone_num in strike_zones_set:
+        label = f"[{zone_num}]"  # ストライクゾーンをわかりやすく囲み
+      else:
+        label = f"{zone_num}"
 
-  with btn_col:
-    zone_label = "ストライク" if is_curr_strike else "ボール"
-    st.markdown(
-        f"📍 選択中: **{st.session_state.selected_course} 番** ({zone_label})"
-    )
+      if cols[c].button(
+          label, key=f"c_btn_{zone_num}", use_container_width=True
+      ):
+        st.session_state.selected_course = zone_num
+        st.rerun()
 
   st.divider()
 
