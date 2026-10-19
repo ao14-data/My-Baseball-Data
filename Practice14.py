@@ -13,23 +13,25 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- ★スマホ版でも5x5グリッドを保持するためのカスタムCSS ---
+# --- ★スマホ版でも5x5グリッドを強力に横並び固定するCSS ---
 st.markdown(
     """
     <style>
-    /* Streamlitのカラム要素がスマホで縦並びになるのを防ぎ、横並びを強制 */
+    /* Streamlitのカラム要素がスマホで縦並びになるのを防ぎ、5等分に強制作成 */
     [data-testid="column"] {
         min-width: 0px !important;
         flex: 1 1 0px !important;
+        padding: 0px 1px !important;
     }
     
-    /* 5×5コース選択ボタンのスタイル調整（スマホでも崩れないように小さめにする） */
+    /* 5×5コース選択ボタンの文字サイズと高さをスマホ用に最適化 */
     div.stButton > button {
-        padding: 4px 2px !important;
-        font-size: 13px !important;
-        height: auto !important;
-        min-height: 38px !important;
+        padding: 2px 0px !important;
+        font-size: 11px !important;
+        height: 36px !important;
+        min-height: 36px !important;
         margin: 0px !important;
+        width: 100% !important;
     }
     </style>
     """,
@@ -250,26 +252,29 @@ with tab1:
     st.session_state.balls = int(b_str)
     st.session_state.strikes = int(s_str)
 
-  # --- 2. スタメン編集 ---
+  # --- 2. スタメン編集（上から1番〜9番の順に綺麗に並ぶよう修正） ---
   with st.expander("👥 スタメン（1〜9番）編集 & 基本打席設定", expanded=False):
     new_lineup = []
-    l_cols = st.columns(3)
-    for i in range(9):
-      with l_cols[i % 3]:
-        p_info = st.session_state.lineup[i]
-        c1, c2 = st.columns([2, 1])
-        raw_name = c1.text_input(
-            f"{i+1}番打者", value=p_info["name"], key=f"player_name_{i}"
-        )
-        p_side = c2.radio(
-            f"打順{i+1}打席",
-            ["R", "L", "S"],
-            index=["R", "L", "S"].index(p_info["side"]),
-            key=f"player_side_{i}",
-            horizontal=True,
-        )
-        clean_name = raw_name.strip() or f"打者{i+1}"
-        new_lineup.append({"name": clean_name, "side": p_side})
+    # 3打者ずつを1つの行（row）として作成し、1番〜9番の順序を維持
+    for row_idx in range(3):
+      l_cols = st.columns(3)
+      for col_idx in range(3):
+        i = row_idx * 3 + col_idx
+        with l_cols[col_idx]:
+          p_info = st.session_state.lineup[i]
+          c1, c2 = st.columns([2, 1])
+          raw_name = c1.text_input(
+              f"{i+1}番打者", value=p_info["name"], key=f"player_name_{i}"
+          )
+          p_side = c2.radio(
+              f"打順{i+1}打席",
+              ["R", "L", "S"],
+              index=["R", "L", "S"].index(p_info["side"]),
+              key=f"player_side_{i}",
+              horizontal=True,
+          )
+          clean_name = raw_name.strip() or f"打者{i+1}"
+          new_lineup.append({"name": clean_name, "side": p_side})
 
     st.session_state.lineup = new_lineup
 
@@ -396,7 +401,6 @@ with tab1:
       f"▼ **コース選択** （📍 選択中: **{st.session_state.selected_course} 番** - 【{zone_label}】）"
   )
 
-  # 中央9マス（ストライクゾーン）のコース番号一覧
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
   for r in range(5):
@@ -405,11 +409,10 @@ with tab1:
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
 
-      # 選択中・ストライクゾーン内・ボールゾーンでラベル表記を変えて視認性を強化
       if is_selected:
         label = f"★{zone_num}"
       elif zone_num in strike_zones_set:
-        label = f"[{zone_num}]"  # ストライクゾーンをわかりやすく囲み
+        label = f"[{zone_num}]"
       else:
         label = f"{zone_num}"
 
