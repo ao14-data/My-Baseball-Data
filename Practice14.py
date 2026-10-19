@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- ★スマホ版でも5x5グリッドを強力に横並び固定するCSS ---
+# --- スマホ版でも5x5グリッドを強力に横並び固定するCSS ---
 st.markdown(
     """
     <style>
@@ -252,10 +252,9 @@ with tab1:
     st.session_state.balls = int(b_str)
     st.session_state.strikes = int(s_str)
 
-  # --- 2. スタメン編集（上から1番〜9番の順に綺麗に並ぶよう修正） ---
+  # --- 2. スタメン編集（編集時に即時更新・反映されるよう修整） ---
   with st.expander("👥 スタメン（1〜9番）編集 & 基本打席設定", expanded=False):
     new_lineup = []
-    # 3打者ずつを1つの行（row）として作成し、1番〜9番の順序を維持
     for row_idx in range(3):
       l_cols = st.columns(3)
       for col_idx in range(3):
@@ -277,6 +276,13 @@ with tab1:
           new_lineup.append({"name": clean_name, "side": p_side})
 
     st.session_state.lineup = new_lineup
+
+    # 現在選択されている打者の情報をスタメン編集内容と即時同期
+    curr_active = st.session_state.lineup[st.session_state.lineup_index]
+    st.session_state.batter_name = curr_active["name"]
+    st.session_state.current_batter_side = (
+        "L" if curr_active["side"] == "L" else "R"
+    )
 
   # --- 3. 打撃・投球詳細 ---
   mid_col1, mid_col2, mid_col3, mid_col4 = st.columns([2.5, 1.5, 2, 2])
