@@ -843,3 +843,5 @@ with tab3:
           title=f"投球コース分布 (条件合致 投球数: {total_pitches}球)",
           xaxis_title="コース(横)",
           yaxis_title="コース(縦)",
+      )
+      st.plotly_chart(fig, use_container_width=True)
