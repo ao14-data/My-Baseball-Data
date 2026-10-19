@@ -13,42 +13,37 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- スマホ画面でスクロールせずに収めるための超コンパクトCSS ---
+# --- スマホ・PC両対応の最適化CSS ---
 st.markdown(
     """
     <style>
-    /* 画面全体の上下パディングを詰めてコンパクトに */
+    /* 画面全体のコンテナの余白調整 */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 1.5rem !important;
+        padding-bottom: 3rem !important;
     }
     
-    /* カラムの間隔を詰める */
+    /* カラムの間隔を整える */
     [data-testid="column"] {
         min-width: 0px !important;
         flex: 1 1 0px !important;
-        padding: 0px 1px !important;
+        padding: 0px 2px !important;
     }
     
-    /* ウィジェット（セレクトボックス等）の上下余白を削減 */
+    /* セレクトボックス等の高さを確保して押しやすくする */
     div.stSelectbox, div.stTextInput, div.stRadio {
-        margin-bottom: -10px !important;
+        margin-bottom: 2px !important;
     }
     
-    /* 5×5コース選択ボタンをコンパクトに調整 */
+    /* 5×5コース選択ボタンのサイズ調整（スマホでも押しやすい大きさ） */
     div.stButton > button {
-        padding: 1px 0px !important;
-        font-size: 11px !important;
+        padding: 4px 0px !important;
+        font-size: 13px !important;
         font-weight: bold !important;
-        height: 32px !important;
-        min-height: 32px !important;
-        margin: 1px !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        margin: 2px 0px !important;
         width: 100% !important;
-    }
-    
-    /* 区切り線の余白を削減 */
-    hr {
-        margin: 0.5em 0px !important;
     }
     </style>
     """,
@@ -130,7 +125,8 @@ def load_or_init_data():
 # データ読み込み
 df_data = load_or_init_data()
 
-# --- タイトル ---
+# --- タイトル（アンカー） ---
+st.markdown('<div id="top-anchor"></div>', unsafe_allow_html=True)
 st.title("⚾ データ分析＋α")
 
 # タブの作成
@@ -138,7 +134,7 @@ tab1, tab2, tab3 = st.tabs([
     "📝 データ入力",
     "🗂️ 打席一覧・1球データ詳細",
     "🔥 配球ヒートマップ分析",
-])
+] )
 
 
 # ==========================================
@@ -411,13 +407,15 @@ with tab1:
         "結果", filtered_result_options, index=default_result_idx
     )
 
-  st.markdown("<div style='margin-bottom: -10px;'></div>", unsafe_allow_html=True)
+  st.divider()
 
-  # --- ④ 25分割コース選択グリッド ---
+  # --- ④ 25分割コース選択グリッド ＆ 登録ボタンをセットで配置 ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = "ストライクゾーン" if is_curr_strike else "ボールゾーン"
 
-  st.caption(f"📍 選択中: 【 {st.session_state.selected_course}番 】({zone_label})")
+  st.markdown(
+      f"##### 🎯 コース選択（📍 選択中: **{st.session_state.selected_course}番** / **{zone_label}**）"
+  )
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
@@ -445,8 +443,10 @@ with tab1:
         st.session_state.selected_course = zone_num
         st.rerun()
 
-  # --- ⑤ 登録ボタン ---
-  if st.button("💾 この投球を登録して次へ", use_container_width=True):
+  st.markdown("<br>", unsafe_allow_html=True)
+
+  # --- ⑤ 登録ボタン（最優先で確実に目立たせて押しやすく配置） ---
+  if st.button("💾 この投球を登録して次へ", type="primary", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
 
@@ -503,7 +503,7 @@ with tab1:
     new_b = st.session_state.balls
     new_s = st.session_state.strikes
     st.success(
-        f"✅ 登録完了！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
+        f"✅ 登録完了しました！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
     )
 
     st.markdown(
