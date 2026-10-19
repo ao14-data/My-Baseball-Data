@@ -24,13 +24,14 @@ st.markdown(
         padding: 0px 1px !important;
     }
     
-    /* 5×5コース選択ボタンの文字サイズと高さをスマホ用に最適化 */
+    /* 5×5コース選択ボタンのデザイン最適化（選択中は色を変えて目立たせる） */
     div.stButton > button {
         padding: 2px 0px !important;
-        font-size: 11px !important;
-        height: 36px !important;
-        min-height: 36px !important;
-        margin: 0px !important;
+        font-size: 12px !important;
+        font-weight: bold !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        margin: 1px !important;
         width: 100% !important;
     }
     </style>
@@ -396,11 +397,14 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 25分割コース選択グリッド ---
+  # --- ④ 25分割コース選択グリッド（改善版） ---
   is_curr_strike = st.session_state.selected_course in strike_zones
-  zone_label = "ストライク" if is_curr_strike else "ボール"
-  st.markdown(
-      f"▼ **コース選択** （📍 選択中: **{st.session_state.selected_course} 番** - 【{zone_label}】）"
+  zone_label = "ストライクゾーン" if is_curr_strike else "ボールゾーン"
+
+  st.markdown("##### 🎯 コース選択（5×5 グリッド）")
+  st.info(
+      f"📍 選択中のコース: **【 {st.session_state.selected_course} 番 】** （"
+      f"**{zone_label}**）"
   )
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
@@ -411,15 +415,21 @@ with tab1:
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
 
+      # 選択されているボタンは「primary（強調色）」にして一目でわかるようにする
+      btn_type = "primary" if is_selected else "secondary"
+
       if is_selected:
-        label = f"★{zone_num}"
+        label = f"★ {zone_num}"
       elif zone_num in strike_zones_set:
         label = f"[{zone_num}]"
       else:
         label = f"{zone_num}"
 
       if cols[c].button(
-          label, key=f"c_btn_{zone_num}", use_container_width=True
+          label,
+          key=f"c_btn_{zone_num}",
+          type=btn_type,
+          use_container_width=True,
       ):
         st.session_state.selected_course = zone_num
         st.rerun()
@@ -802,7 +812,6 @@ with tab3:
             margin=dict(t=30, b=10, l=10, r=10),
             height=280,
         )
-        # --- ★ 円グラフも固定（操作無効化） ---
         st.plotly_chart(
             fig_pie,
             use_container_width=True,
@@ -870,7 +879,6 @@ with tab3:
           yaxis_title="コース(縦)",
       )
 
-      # --- ★ ヒートマップも固定（操作無効化） ---
       fig.update_xaxes(fixedrange=True)
       fig.update_yaxes(fixedrange=True)
 
