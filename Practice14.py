@@ -167,18 +167,8 @@ with tab1:
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
-  # ==========================================
-  # 順序の変更：
-  # 1. 基本情報（日付・試合名・投手名）
-  # 2. スタメン編集
-  # 3. 現在の打者選択 ＆ 打席
-  # 4. カウント ＆ 球種 ＆ 結果
-  # ==========================================
-
-  # --- 1. 基本情報（日付・試合名・投手名） ---
-  top_col1, top_col2, top_col3 = st.columns([2.5, 2, 2])
-
-  with top_col1:
+  # --- ⚙️ 試合設定・スタメン編集（折りたたみ式で画面を簡素化） ---
+  with st.expander("⚙️ 試合設定・スタメン編集（日付・試合名・投手・打順）", expanded=False):
     st.caption("📅 試合日")
     d_c1, d_c2, d_c3 = st.columns(3)
     years = list(range(2024, 2031))
@@ -220,18 +210,18 @@ with tab1:
     st.session_state.month = selected_month
     st.session_state.day = selected_day
 
-  with top_col2:
-    raw_game_id = st.text_input("試合名", value=st.session_state.game_id)
-    st.session_state.game_id = raw_game_id.strip() or "公式戦"
+    c_g1, c_g2 = st.columns(2)
+    with c_g1:
+      raw_game_id = st.text_input("試合名", value=st.session_state.game_id)
+      st.session_state.game_id = raw_game_id.strip() or "公式戦"
+    with c_g2:
+      raw_pitcher_name = st.text_input(
+          "投手名", value=st.session_state.pitcher_name
+      )
+      st.session_state.pitcher_name = raw_pitcher_name.strip() or "あお"
 
-  with top_col3:
-    raw_pitcher_name = st.text_input(
-        "投手名", value=st.session_state.pitcher_name
-    )
-    st.session_state.pitcher_name = raw_pitcher_name.strip() or "あお"
-
-  # --- 2. スタメン編集 ---
-  with st.expander("👥 スタメン（1〜9番）編集 & 基本打席設定", expanded=False):
+    st.markdown("---")
+    st.markdown("##### 👥 スタメン（1〜9番）編集")
     new_lineup = []
     for row_idx in range(3):
       l_cols = st.columns(3)
@@ -261,7 +251,7 @@ with tab1:
         "L" if curr_active["side"] == "L" else "R"
     )
 
-  # --- 3. 現在の打者選択 ＆ 打席 ---
+  # --- メイン入力エリア（現在の打者・打席、カウント、球種、結果） ---
   sub_col1, sub_col2 = st.columns([2.5, 1.5])
 
   with sub_col1:
@@ -308,7 +298,6 @@ with tab1:
     )
     st.session_state.current_batter_side = batter_side
 
-  # --- 4. カウント ＆ 球種 ＆ 結果 ---
   det_col1, det_col2, det_col3 = st.columns([1.5, 2, 2])
 
   with det_col1:
@@ -410,7 +399,7 @@ with tab1:
 
   st.divider()
 
-  # --- 5. 25分割コース選択グリッド ---
+  # --- 4. 25分割コース選択グリッド ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = "ストライク" if is_curr_strike else "ボール"
   st.markdown(
@@ -440,7 +429,7 @@ with tab1:
 
   st.divider()
 
-  # --- 6. 登録ボタン ---
+  # --- 5. 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
