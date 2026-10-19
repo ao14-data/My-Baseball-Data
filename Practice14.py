@@ -167,8 +167,16 @@ with tab1:
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
-  # --- 1. 基本情報 ＆ カウント（上部に移動） ---
-  top_col1, top_col2, top_col3, top_col4 = st.columns([2.5, 2, 2, 1.5])
+  # ==========================================
+  # 順序の変更：
+  # 1. 基本情報（日付・試合名・投手名）
+  # 2. スタメン編集
+  # 3. 現在の打者選択 ＆ 打席
+  # 4. カウント ＆ 球種 ＆ 結果
+  # ==========================================
+
+  # --- 1. 基本情報（日付・試合名・投手名） ---
+  top_col1, top_col2, top_col3 = st.columns([2.5, 2, 2])
 
   with top_col1:
     st.caption("📅 試合日")
@@ -222,36 +230,6 @@ with tab1:
     )
     st.session_state.pitcher_name = raw_pitcher_name.strip() or "あお"
 
-  with top_col4:
-    # カウント選択を上部に移動
-    count_options = [
-        "0-0",
-        "1-0",
-        "2-0",
-        "3-0",
-        "0-1",
-        "1-1",
-        "2-1",
-        "3-1",
-        "0-2",
-        "1-2",
-        "2-2",
-        "3-2",
-    ]
-    current_count_str = f"{st.session_state.balls}-{st.session_state.strikes}"
-    default_index = (
-        count_options.index(current_count_str)
-        if current_count_str in count_options
-        else 0
-    )
-    selected_count = st.selectbox(
-        "カウント", count_options, index=default_index
-    )
-
-    b_str, s_str = selected_count.split("-")
-    st.session_state.balls = int(b_str)
-    st.session_state.strikes = int(s_str)
-
   # --- 2. スタメン編集 ---
   with st.expander("👥 スタメン（1〜9番）編集 & 基本打席設定", expanded=False):
     new_lineup = []
@@ -283,10 +261,10 @@ with tab1:
         "L" if curr_active["side"] == "L" else "R"
     )
 
-  # --- 3. 打撃・投球詳細（現在の打者・打席を下部に移動） ---
-  mid_col1, mid_col2, mid_col3, mid_col4 = st.columns([2.5, 1.5, 2, 2])
+  # --- 3. 現在の打者選択 ＆ 打席 ---
+  sub_col1, sub_col2 = st.columns([2.5, 1.5])
 
-  with mid_col1:
+  with sub_col1:
     lineup_labels = [
         f"{i+1}番: {p['name']} ({p['side']}打ち)"
         for i, p in enumerate(st.session_state.lineup)
@@ -312,7 +290,7 @@ with tab1:
     active_player = st.session_state.lineup[st.session_state.lineup_index]
     st.session_state.batter_name = active_player["name"]
 
-  with mid_col2:
+  with sub_col2:
     default_side = "L" if active_player["side"] == "L" else "R"
     side_options = ["R", "L"]
 
@@ -330,7 +308,39 @@ with tab1:
     )
     st.session_state.current_batter_side = batter_side
 
-  with mid_col3:
+  # --- 4. カウント ＆ 球種 ＆ 結果 ---
+  det_col1, det_col2, det_col3 = st.columns([1.5, 2, 2])
+
+  with det_col1:
+    count_options = [
+        "0-0",
+        "1-0",
+        "2-0",
+        "3-0",
+        "0-1",
+        "1-1",
+        "2-1",
+        "3-1",
+        "0-2",
+        "1-2",
+        "2-2",
+        "3-2",
+    ]
+    current_count_str = f"{st.session_state.balls}-{st.session_state.strikes}"
+    default_index = (
+        count_options.index(current_count_str)
+        if current_count_str in count_options
+        else 0
+    )
+    selected_count = st.selectbox(
+        "カウント", count_options, index=default_index
+    )
+
+    b_str, s_str = selected_count.split("-")
+    st.session_state.balls = int(b_str)
+    st.session_state.strikes = int(s_str)
+
+  with det_col2:
     standard_pitch_types = [
         "ストレート",
         "カーブ",
@@ -352,7 +362,7 @@ with tab1:
     else:
       pitch_type = selected_p_type
 
-  with mid_col4:
+  with det_col3:
     is_curr_strike = st.session_state.selected_course in strike_zones
 
     base_result_options = [
@@ -400,7 +410,7 @@ with tab1:
 
   st.divider()
 
-  # --- 4. 25分割コース選択グリッド ---
+  # --- 5. 25分割コース選択グリッド ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = "ストライク" if is_curr_strike else "ボール"
   st.markdown(
@@ -430,7 +440,7 @@ with tab1:
 
   st.divider()
 
-  # --- 5. 登録ボタン ---
+  # --- 6. 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
@@ -587,7 +597,7 @@ def render_comprehensive_filter(df, key_prefix="filter"):
 # 【タブ2】打席一覧・1球データ表示
 # ==========================================
 with tab2:
-  st.subheader("🗂️ 打席一覧・1球データ表示")
+  st.subheader("🗂️ 打席一覧・1球データ詳細")
 
   df_all = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
 
