@@ -252,7 +252,7 @@ with tab1:
     st.session_state.balls = int(b_str)
     st.session_state.strikes = int(s_str)
 
-  # --- 2. スタメン編集（編集時に即時更新・反映されるよう修整） ---
+  # --- 2. スタメン編集 ---
   with st.expander("👥 スタメン（1〜9番）編集 & 基本打席設定", expanded=False):
     new_lineup = []
     for row_idx in range(3):
@@ -293,12 +293,15 @@ with tab1:
         for i, p in enumerate(st.session_state.lineup)
     ]
 
+    # ラインナップの文字列を組み合わせた一意のキーを作成することで、名前変更時にselectboxを強制再描画
+    lineup_signature = "_".join(lineup_labels)
+
     selected_lineup_idx = st.selectbox(
         "現在の打者を選択",
         range(9),
         format_func=lambda i: lineup_labels[i],
         index=st.session_state.lineup_index,
-        key="batter_select_box",
+        key=f"batter_select_box_{lineup_signature}",
     )
 
     if selected_lineup_idx != st.session_state.lineup_index:
