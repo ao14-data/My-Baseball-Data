@@ -15,7 +15,7 @@ st.set_page_config(
 
 CSV_FILE = "baseball_data.csv"
 
-# --- 超安定・シンプル化されたデザインCSS ---
+# --- 超安定デザインCSS（DOM崩れ・クラッシュ防止） ---
 st.markdown(
     """
     <style>
@@ -36,7 +36,7 @@ st.markdown(
     
     /* --- ボード全体のコンテナ --- */
     .catcher-board {
-        background: #1b4d3e;
+        background: linear-gradient(135deg, #1b4d3e 0%, #0e2920 100%);
         border: 4px solid #333333;
         border-radius: 12px;
         padding: 12px;
@@ -45,7 +45,7 @@ st.markdown(
         box-shadow: 0 8px 16px rgba(0,0,0,0.4);
     }
     
-    /* ボタンの共通スタイル（クラッシュ防止のため軽量化） */
+    /* ボールゾーンボタン */
     .catcher-board div.stButton > button {
         padding: 2px 0px !important;
         font-size: 13px !important;
