@@ -261,7 +261,7 @@ with tab2:
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
   with st.expander(
-      "📅 試合情報（日付・試合名・チーム名） & 👥 スタメン編集", expanded=True
+      "📅 試合情報（日付・試合名・チーム名） & 👥 スタメン編集", expanded=False
   ):
     st.caption("📅 試合日")
     d_c1, d_c2, d_c3 = st.columns(3)
@@ -307,7 +307,6 @@ with tab2:
     raw_game_id = st.text_input("試合名", value=st.session_state.game_id)
     st.session_state.game_id = raw_game_id.strip() or "公式戦"
 
-    # --- チーム名入力欄の追加 ---
     st.markdown("##### ⚾ 対戦チーム名")
     team_c1, team_c2 = st.columns(2)
     raw_away_team = team_c1.text_input(
@@ -397,7 +396,7 @@ with tab2:
     )
     st.session_state.current_batter_side = batter_side
 
-  # --- チーム名を反映したスコアボードの表示 ---
+  # --- スコアボード＆手動変更アコーディオン ---
   st.markdown("---")
   score_disp_col1, score_disp_col2, score_disp_col3 = st.columns([1, 2, 1])
   with score_disp_col2:
@@ -408,6 +407,30 @@ with tab2:
         f" {st.session_state.home_team}</h3>",
         unsafe_allow_html=True,
     )
+
+  with st.expander("⚙️ スコアを手動で変更・修正する"):
+    sc_col1, sc_col2 = st.columns(2)
+    manual_away = sc_col1.number_input(
+        f"{st.session_state.away_team} の得点",
+        min_value=0,
+        value=int(st.session_state.score_away),
+        step=1,
+        key="manual_score_away",
+    )
+    manual_home = sc_col2.number_input(
+        f"{st.session_state.home_team} の得点",
+        min_value=0,
+        value=int(st.session_state.score_home),
+        step=1,
+        key="manual_score_home",
+    )
+    if (
+        manual_away != st.session_state.score_away
+        or manual_home != st.session_state.score_home
+    ):
+      st.session_state.score_away = manual_away
+      st.session_state.score_home = manual_home
+      st.rerun()
 
   info_col1, info_col2, info_col3 = st.columns(3)
 
@@ -686,7 +709,7 @@ with tab2:
     return current_inning
 
 
-  # --- ランナー・得点更新の簡易シミュレーション関数 ---
+  # --- ランナー・得点更新のシミュレーション関数 ---
   def process_runner_and_score(current_runner, result, inning_str):
     added_runs = 0
     new_runner = current_runner
