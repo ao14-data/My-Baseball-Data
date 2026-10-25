@@ -408,7 +408,7 @@ with tab2:
 
   st.markdown("---")
 
-  # --- カウント ＆ 球種 ＆ 結果（分離） ＆ 打球方向（独立） ---
+  # --- カウント ＆ 球種 ＆ 結果 ＆ 打球方向（シンプル化された13方向） ---
   det_col1, det_col2, det_col3, det_col4 = st.columns([1, 1.3, 1.7, 1.7])
 
   with det_col1:
@@ -474,15 +474,19 @@ with tab2:
         "2塁打",
         "3塁打",
         "本塁打",
-        "内野ゴロ",
-        "内野フライ",
-        "外野ゴロ",
-        "外野フライ",
+        "ゴロ",
+        "フライ",
         "空振り三振",
         "見逃し三振",
         "四球",
         "死球",
-        "その他",
+        "ファールフライ",
+        "犠打飛",
+        "振り逃げ",
+        "エラー",
+        "フィルダースチョイス",
+        "打撃妨害",
+        "併殺打",
     ]
 
     filtered_result_options = []
@@ -512,27 +516,25 @@ with tab2:
     result = st.selectbox("結果", filtered_result_options, index=default_result_idx)
 
   with det_col4:
-    # 打球方向の選択肢（前に飛んでいないときは「-」を選択可能）
+    # ご指定の13個のシンプルな打球方向リスト
     hit_direction_options = [
         "-",
-        "レフト前",
-        "センター前",
-        "ライト前",
+        "ピッチャー",
+        "キャッチャー",
+        "ファースト",
+        "セカンド",
+        "サード",
+        "ショート",
         "レフト線",
+        "レフト",
+        "左中間",
+        "センター",
+        "右中間",
+        "ライト",
         "ライト線",
-        "センター頭上",
-        "レフト方向",
-        "センター方向",
-        "ライト方向",
-        "投前",
-        "捕前",
-        "一前",
-        "二前",
-        "三前",
-        "遊前",
     ]
 
-    # 結果がボールや三振などの場合は自動で「-」にするか選択可能にする
+    # ボールや三振、ファウルなどの場合は自動で「-」を選択
     if result in [
         "ボール",
         "見逃しストライク",
@@ -543,9 +545,9 @@ with tab2:
         "四球",
         "死球",
     ]:
-      hit_direction = st.selectbox("打球方向・詳細", hit_direction_options, index=0)
+      hit_direction = st.selectbox("打球方向", hit_direction_options, index=0)
     else:
-      hit_direction = st.selectbox("打球方向・詳細", hit_direction_options)
+      hit_direction = st.selectbox("打球方向", hit_direction_options)
 
   st.divider()
 
@@ -646,8 +648,17 @@ with tab2:
     else:
       st.session_state.balls = 0
       st.session_state.strikes = 0
-      if "ゴロ" in result or "フライ" in result or "三振" in result:
-        st.session_state.outs = (current_outs + 1) if current_outs < 2 else 0
+      if result in [
+          "ゴロ",
+          "フライ",
+          "空振り三振",
+          "見逃し三振",
+          "ファールフライ",
+          "犠打飛",
+          "併殺打",
+      ]:
+        add_outs = 2 if result == "併殺打" else 1
+        st.session_state.outs = min(2, current_outs + add_outs)
       is_at_bat_over = True
 
     if is_at_bat_over:
