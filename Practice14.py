@@ -29,22 +29,17 @@ def get_base64_image(image_path):
 
 bg_base64 = get_base64_image(BG_IMAGE_FILE)
 
-# --- 写真とボタンを完全一体化させるためのカスタムCSS ---
+# --- 写真とボタンを完全一体化させるためのカスタムCSS（f-string不使用で修正済み） ---
 st.markdown(
     f"""
     <style>
-    /* 画面全体のコンテナ余白調整 */
     .block-container {{
         padding-top: 1rem !important;
         padding-bottom: 5rem !important;
     }}
-    
-    /* セレクトボックス等の高さを確保 */
     div.stSelectbox, div.stTextInput, div.stRadio {{
         margin-bottom: 2px !important;
     }}
-    
-    /* --- キャッチャー目線ボード（背景画像の上に25マスを配置） --- */
     .strike-zone-wrapper {{
         position: relative;
         width: 100%;
@@ -58,8 +53,6 @@ st.markdown(
         border: 2px solid #555;
         padding: 4px;
     }}
-    
-    /* 25マスを綺麗に配置するためのグリッドコンテナ */
     .grid-container {{
         display: grid;
         grid-template-columns: repeat(5, 1fr);
@@ -68,8 +61,6 @@ st.markdown(
         height: 100%;
         gap: 2px;
     }}
-    
-    /* 各マスのボタンの見た目（半透明にして写真の枠線を透けさせる） */
     .grid-container div.stButton > button {{
         width: 100% !important;
         height: 100% !important;
@@ -82,17 +73,14 @@ st.markdown(
         border: 1px solid rgba(255, 255, 255, 0.5) !important;
         border-radius: 3px !important;
     }}
-    
-    /* 選択中のボタン（★）は赤く強調 */
     .grid-container div.stButton > button[kind="primary"] {{
         background-color: rgba(255, 75, 75, 0.9) !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
     }}
-    
     [data-testid="stDataFrame"] {{
         overflow-x: hidden !important;
-    }
+    }}
     [data-testid="stDataFrame"] > div {{
         overflow-x: hidden !important;
     }}
@@ -149,6 +137,7 @@ def load_or_init_data():
             "日付": "2026-10-18",
             "試合ID": "公式戦",
             "投手名": "あお",
+            "打者名": "佐藤",
             "打者左右": "L",
             "ボール": 0,
             "ストライク": 0,
@@ -466,16 +455,16 @@ with tab1:
   )
 
   # 写真を背景にしたラッパーの中に25マスのボタンをグリッド配置
-  st.markdown('<div class="strike-zone-wrapper">', unsafe_allow_html=True)
-  st.markdown('<div class="grid-container">', unsafe_allow_html=True)
+  st.markdown(
+      '<div class="strike-zone-wrapper"><div class="grid-container">',
+      unsafe_allow_html=True,
+  )
 
-  # 各ボタンを順番に配置
   for zone_num in range(1, 26):
     is_selected = zone_num == st.session_state.selected_course
     btn_kind = "primary" if is_selected else "secondary"
     label = f"★{zone_num}" if is_selected else f"{zone_num}"
 
-    # ユニークなキーでボタンを作成
     if st.button(
         label,
         key=f"grid_btn_{zone_num}",
@@ -485,8 +474,7 @@ with tab1:
       st.session_state.selected_course = zone_num
       st.rerun()
 
-  st.markdown("</div>", unsafe_allow_html=True)  # grid-container 終了
-  st.markdown("</div>", unsafe_allow_html=True)  # strike-zone-wrapper 終了
+  st.markdown("</div></div>", unsafe_allow_html=True)
 
   st.markdown("<br>", unsafe_allow_html=True)
 
