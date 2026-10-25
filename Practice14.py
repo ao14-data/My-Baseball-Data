@@ -15,7 +15,7 @@ st.set_page_config(
 
 CSV_FILE = "baseball_data.csv"
 
-# --- キャッチャー目線ボード専用のイラスト風デザインCSS ---
+# --- 超安定・シンプル化されたデザインCSS ---
 st.markdown(
     """
     <style>
@@ -34,9 +34,9 @@ st.markdown(
         padding: 0px 1px !important;
     }
     
-    /* --- キャッチャー目線ボード（球場・ホームベースの雰囲気） --- */
+    /* --- ボード全体のコンテナ --- */
     .catcher-board {
-        background: linear-gradient(135deg, #1b4d3e 0%, #0e2920 100%);
+        background: #1b4d3e;
         border: 4px solid #333333;
         border-radius: 12px;
         padding: 12px;
@@ -45,7 +45,7 @@ st.markdown(
         box-shadow: 0 8px 16px rgba(0,0,0,0.4);
     }
     
-    /* --- 外周のボールゾーンボタン --- */
+    /* ボタンの共通スタイル（クラッシュ防止のため軽量化） */
     .catcher-board div.stButton > button {
         padding: 2px 0px !important;
         font-size: 13px !important;
@@ -54,17 +54,6 @@ st.markdown(
         min-height: 45px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: rgba(20, 35, 30, 0.85) !important;
-        color: #a3c1ad !important;
-        border: 1px solid #3a5347 !important;
-        border-radius: 4px !important;
-    }
-    
-    /* --- 選択中のボタン（★）の超強調デザイン --- */
-    .catcher-board div.stButton > button[kind="primary"] {
-        background-color: #ff4b4b !important;
-        color: #ffffff !important;
-        border: 3px solid #ffffff !important;
     }
     
     [data-testid="stDataFrame"] {
@@ -113,75 +102,21 @@ def load_or_init_data():
             "球種": "ストレート",
             "コース": 13,
             "結果": "空振り",
-        },
-        {
-            "日付": "2026-10-18",
-            "試合ID": "公式戦",
-            "投手名": "あお",
-            "打者名": "鈴木",
-            "打者左右": "R",
-            "イニング": "1回表",
-            "アウト数": 0,
-            "ランナー": "なし",
-            "ボール": 0,
-            "ストライク": 1,
-            "球種": "スライダー",
-            "コース": 18,
-            "結果": "ボール",
-        },
-        {
-            "日付": "2026-10-18",
-            "試合ID": "公式戦",
-            "投手名": "あお",
-            "打者名": "鈴木",
-            "打者左右": "R",
-            "イニング": "1回表",
-            "アウト数": 0,
-            "ランナー": "なし",
-            "ボール": 1,
-            "ストライク": 1,
-            "球種": "カーブ",
-            "コース": 8,
-            "結果": "見逃しストライク",
-        },
-        {
-            "日付": "2026-10-18",
-            "試合ID": "公式戦",
-            "投手名": "あお",
-            "打者名": "佐藤",
-            "打者左右": "L",
-            "イニング": "1回表",
-            "アウト数": 0,
-            "ランナー": "なし",
-            "ボール": 0,
-            "ストライク": 0,
-            "球種": "カットボール",
-            "コース": 12,
-            "結果": "安打（センター前）",
-        },
+        }
     ])
     initial_data.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
 
   df = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
 
-  # 旧形式のCSVファイルに対応するためのカラム補正
   for col in expected_columns:
     if col not in df.columns:
-      if col == "イニング":
-        df["イニング"] = "1回表"
-      elif col == "アウト数":
-        df["アウト数"] = 0
-      elif col == "ランナー":
-        df["ランナー"] = "なし"
-      else:
-        df[col] = "-"
+      df[col] = "-"
 
   df = df[expected_columns]
   df.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
   return df
 
 
-# データ読み込み
 df_data = load_or_init_data()
 
 # --- タイトル ---
@@ -260,7 +195,6 @@ with tab1:
 with tab2:
   today = date.today()
 
-  # --- セッション状態の初期化 ---
   if "year" not in st.session_state:
     st.session_state.year = today.year
   if "month" not in st.session_state:
@@ -299,7 +233,6 @@ with tab2:
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
-  # --- ① 試合日・試合名・スタメン編集の折りたたみ ---
   with st.expander(
       "📅 試合情報（日付・試合名） & 👥 スタメン（1〜9番）編集",
       expanded=False,
@@ -373,7 +306,6 @@ with tab2:
 
     st.session_state.lineup = new_lineup
 
-  # --- ② 常時表示：投手名 ＆ 現在の打者選択 ＆ 打席 ---
   top_bar_col1, top_bar_col2, top_bar_col3 = st.columns([1.5, 2.5, 1.5])
 
   with top_bar_col1:
@@ -426,7 +358,6 @@ with tab2:
     )
     st.session_state.current_batter_side = batter_side
 
-  # --- ③ 新規追加：イニング ＆ アウト数 ＆ ランナー ---
   info_col1, info_col2, info_col3 = st.columns(3)
 
   with info_col1:
@@ -475,7 +406,6 @@ with tab2:
 
   st.markdown("---")
 
-  # --- ④ カウント ＆ 球種 ＆ 結果（打球方向含む） ---
   det_col1, det_col2, det_col3 = st.columns([1.2, 1.8, 2.2])
 
   with det_col1:
@@ -582,7 +512,6 @@ with tab2:
 
   st.divider()
 
-  # --- ⑤ ストライクゾーン（中央9マス）とボールゾーンが視覚的に分かる専用ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -592,10 +521,8 @@ with tab2:
       f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
   st.caption(
-      "🎯 中央のゴールド枠がストライクゾーンです（ワンタップで確実選択）"
+      "🎯 中央がストライクゾーン、外周がボールゾーンです（ワンタップで確実選択）"
   )
-
-  strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
   st.markdown('<div class="catcher-board">', unsafe_allow_html=True)
 
@@ -604,7 +531,7 @@ with tab2:
     for c in range(5):
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
-      is_strike = zone_num in strike_zones_set
+      is_strike = zone_num in strike_zones
 
       if is_selected:
         btn_kind = "primary"
@@ -617,20 +544,6 @@ with tab2:
           label = f"{zone_num}"
 
       with cols[c]:
-        if is_strike and not is_selected:
-          st.markdown(
-              f"""
-                    <style>
-                    div[data-testid="column"]:nth-of-type({c+1}) button[kind="secondary"] {{
-                        background-color: #3b2219 !important;
-                        color: #ffeb3b !important;
-                        border: 2px solid #ffcc00 !important;
-                    }}
-                    </style>
-                    """,
-              unsafe_allow_html=True,
-          )
-
         if st.button(
             label,
             key=f"zone_btn_{zone_num}",
@@ -644,7 +557,6 @@ with tab2:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- ⑥ 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", type="primary", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
@@ -678,7 +590,7 @@ with tab2:
       else:
         st.session_state.balls = 0
         st.session_state.strikes = 0
-        st.session_state.outs = min(2, current_outs + 1)  # 四球の場合はアウト増えないが簡易処理
+        current_outs = min(2, current_outs + 1)
         is_at_bat_over = True
     elif result in ["見逃しストライク", "空振り"]:
       if current_s < 2:
@@ -694,7 +606,6 @@ with tab2:
       if current_s < 2:
         st.session_state.strikes += 1
     else:
-      # 安打やアウトなどの打席終了結果
       st.session_state.balls = 0
       st.session_state.strikes = 0
       if "アウト" in result or "三振" in result:
@@ -1018,7 +929,6 @@ with tab4:
 
       st.divider()
 
-      # --- 各球種の投球割合 集計セクション ---
       st.markdown("#### 📊 各球種の投球割合（集計）")
 
       pitch_summary = (
@@ -1066,7 +976,6 @@ with tab4:
 
       st.divider()
 
-      # --- ヒートマップ描画 ---
       counts = np.zeros((5, 5))
       for course_num in df_filtered["コース"]:
         if 1 <= course_num <= 25:
@@ -1101,7 +1010,6 @@ with tab4:
           )
       )
 
-      # 中央9マス（縦2〜4, 横2〜4）を正確に囲む黄色太線枠
       fig.add_shape(
           type="rect",
           x0=1.5,
