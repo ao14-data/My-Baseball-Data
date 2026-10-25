@@ -407,7 +407,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真を背景にしたインタラクティブ・コース選択ボード ---
+  # --- ④ 写真を背景にしたインタラクティブ・コース選択ボード（タッチ反応最適化版） ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -416,7 +416,9 @@ with tab1:
   st.markdown(
       f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
-  st.caption("💡 下の写真のマス目をタッチ（クリック）すると選択できます。")
+  st.caption(
+      "💡 下の写真のマス目をタッチすると、即座にそのコースが選択されます。"
+  )
 
   # 25マスの座標作成
   x_coords = []
@@ -442,7 +444,7 @@ with tab1:
           y=y_coords,
           mode="text",
           text=text_labels,
-          textfont=dict(size=15, color="white", family="sans-serif"),
+          textfont=dict(size=16, color="white", family="sans-serif"),
           hoverinfo="skip",
       )
   )
@@ -454,12 +456,12 @@ with tab1:
           x=[x_coords[sel_idx]],
           y=[y_coords[sel_idx]],
           mode="markers",
-          marker=dict(size=52, color="rgba(255, 75, 75, 0.85)", symbol="square"),
+          marker=dict(size=56, color="rgba(255, 75, 75, 0.85)", symbol="square"),
           hoverinfo="skip",
       )
   )
 
-  # 背景に画像（Base64）を正確に敷き詰める
+  # 背景に画像（Base64）を敷き詰める
   if image_uri:
     fig_board.update_layout(
         images=[
@@ -479,8 +481,20 @@ with tab1:
     )
 
   fig_board.update_layout(
-      xaxis=dict(range=[0, 5], showgrid=False, zeroline=False, visible=False),
-      yaxis=dict(range=[0, 5], showgrid=False, zeroline=False, visible=False),
+      xaxis=dict(
+          range=[0, 5],
+          showgrid=False,
+          zeroline=False,
+          visible=False,
+          fixedrange=True,
+      ),
+      yaxis=dict(
+          range=[0, 5],
+          showgrid=False,
+          zeroline=False,
+          visible=False,
+          fixedrange=True,
+      ),
       margin=dict(t=5, b=5, l=5, r=5),
       height=380,
       showlegend=False,
@@ -488,7 +502,7 @@ with tab1:
       plot_bgcolor="rgba(0,0,0,0)",
   )
 
-  # タッチ（クリック）イベントを受け取る
+  # タッチ（クリック）イベントを受け取る（ズームや移動モードを完全無効化）
   selected_point = st.plotly_chart(
       fig_board,
       use_container_width=True,
@@ -498,6 +512,8 @@ with tab1:
           "scrollZoom": False,
           "displayModeBar": False,
           "staticPlot": False,
+          "doubleClick": False,
+          "showTips": False,
       },
       key="interactive_strike_zone",
   )
