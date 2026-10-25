@@ -1,4 +1,3 @@
-import base64
 import os
 import re
 from datetime import date
@@ -15,85 +14,64 @@ st.set_page_config(
 )
 
 CSV_FILE = "baseball_data.csv"
-BG_IMAGE_FILE = "strike_zone_bg.jpg"
 
-
-# --- 画像をBase64に変換する関数 ---
-def get_base64_image(image_path):
-  if os.path.exists(image_path):
-    with open(image_path, "rb") as f:
-      data = f.read()
-    return base64.b64encode(data).decode("utf-8")
-  return ""
-
-
-bg_base64 = get_base64_image(BG_IMAGE_FILE)
-
-# --- 写真とボタンを完全一体化させるためのCSS ---
+# --- スマホ・PC両対応＆キャッチャー目線ボード専用の洗練されたCSS ---
 st.markdown(
-    f"""
+    """
     <style>
-    .block-container {{
+    .block-container {
         padding-top: 1rem !important;
         padding-bottom: 5rem !important;
-    }}
-    div.stSelectbox, div.stTextInput, div.stRadio {{
+    }
+    div.stSelectbox, div.stTextInput, div.stRadio {
         margin-bottom: 2px !important;
-    }}
+    }
     
-    /* 写真を背景にしたコンテナ */
-    .strike-zone-wrapper {{
-        position: relative;
-        width: 100%;
-        max-width: 420px;
+    /* 5等分のカラムを綺麗に固定 */
+    [data-testid="column"] {
+        min-width: 0px !important;
+        flex: 1 1 0px !important;
+        padding: 0px 1px !important;
+    }
+    
+    /* --- キャッチャー目線ボードの外枠コンテナ --- */
+    .catcher-board {
+        background-color: #1a1a1a;
+        border: 3px solid #444;
+        border-radius: 10px;
+        padding: 10px;
+        max-width: 450px;
         margin: 0 auto;
-        aspect-ratio: 1 / 1;
-        background-image: url("data:image/jpeg;base64,{bg_base64}");
-        background-size: 100% 100%;
-        background-position: center;
-        background-repeat: no-repeat;
-        border-radius: 8px;
-        border: 2px solid #666;
-        padding: 4px;
-    }}
+    }
     
-    /* 25マスのグリッド配置 */
-    .grid-container {{
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        grid-template-rows: repeat(5, 1fr);
-        width: 100%;
-        height: 100%;
-        gap: 2px;
-    }}
-    
-    /* ボタンを半透明にして写真のマス目を透けさせる */
-    .grid-container div.stButton > button {{
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 0px !important;
-        padding: 0px !important;
-        font-size: 12px !important;
+    /* 通常ボタンのデザイン（ボールゾーン） */
+    .catcher-board div.stButton > button {
+        padding: 4px 0px !important;
+        font-size: 13px !important;
         font-weight: bold !important;
-        background-color: rgba(20, 20, 20, 0.4) !important;
-        color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.5) !important;
-        border-radius: 3px !important;
-    }}
+        height: 44px !important;
+        min-height: 44px !important;
+        margin: 1px !important;
+        width: 100% !important;
+        background-color: #2e2e2e !important;
+        color: #cccccc !important;
+        border: 1px solid #555555 !important;
+        border-radius: 4px !important;
+    }
     
-    /* 選択中のボタンは赤く強調 */
-    .grid-container div.stButton > button[kind="primary"] {{
-        background-color: rgba(255, 75, 75, 0.9) !important;
+    /* 選択中のボタン（★）の強調デザイン */
+    .catcher-board div.stButton > button[kind="primary"] {
+        background-color: #ff4b4b !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
-    }}
+    }
     
-    [data-testid="stDataFrame"] {{
+    [data-testid="stDataFrame"] {
         overflow-x: hidden !important;
-    }}
-    [data-testid="stDataFrame"] > div {{
+    }
+    [data-testid="stDataFrame"] > div {
         overflow-x: hidden !important;
-    }}
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -454,7 +432,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真を背景にし、その上に25マスのボタンを完全に重ねたインタラクティブボード ---
+  # --- ④ キャッチャー目線デザインの25分割コース選択ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -464,30 +442,41 @@ with tab1:
       f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
   st.caption(
-      "💡 写真のマス目を直接タッチすると、一発でコースが選択されます。"
+      "💡 中央の9マスがストライクゾーン、外周がボールゾーンです（ワンタップで確実選択）"
   )
 
-  # 背景画像コンテナの中に25マスのボタンをグリッドで配置
-  st.markdown(
-      '<div class="strike-zone-wrapper"><div class="grid-container">',
-      unsafe_allow_html=True,
-  )
+  strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  for zone_num in range(1, 26):
-    is_selected = zone_num == st.session_state.selected_course
-    btn_kind = "primary" if is_selected else "secondary"
-    label = f"★{zone_num}" if is_selected else f"{zone_num}"
+  # キャッチャー目線ボードの枠組みを開始
+  st.markdown('<div class="catcher-board">', unsafe_allow_html=True)
 
-    if st.button(
-        label,
-        key=f"grid_btn_{zone_num}",
-        type=btn_kind,
-        use_container_width=True,
-    ):
-      st.session_state.selected_course = zone_num
-      st.rerun()
+  for r in range(5):
+    cols = st.columns(5)
+    for c in range(5):
+      zone_num = r * 5 + c + 1
+      is_selected = zone_num == st.session_state.selected_course
+      is_strike = zone_num in strike_zones_set
 
-  st.markdown("</div></div>", unsafe_allow_html=True)
+      btn_kind = "primary" if is_selected else "secondary"
+
+      if is_selected:
+        label = f"★ {zone_num}"
+      elif is_strike:
+        label = f"[{zone_num}]"
+      else:
+        label = f"{zone_num}"
+
+      with cols[c]:
+        if st.button(
+            label,
+            key=f"pro_btn_{zone_num}",
+            type=btn_kind,
+            use_container_width=True,
+        ):
+          st.session_state.selected_course = zone_num
+          st.rerun()
+
+  st.markdown("</div>", unsafe_allow_html=True)  # catcher-board 終了
 
   st.markdown("<br>", unsafe_allow_html=True)
 
