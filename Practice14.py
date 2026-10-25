@@ -18,7 +18,7 @@ CSV_FILE = "baseball_data.csv"
 BG_IMAGE_FILE = "strike_zone_bg.jpg"
 
 
-# --- 画像をBase64に変換してCSS背景にするための関数 ---
+# --- 画像をBase64に変換する関数 ---
 def get_base64_image(image_path):
   if os.path.exists(image_path):
     with open(image_path, "rb") as f:
@@ -28,62 +28,25 @@ def get_base64_image(image_path):
 
 
 bg_base64 = get_base64_image(BG_IMAGE_FILE)
+image_uri = f"data:image/jpeg;base64,{bg_base64}" if bg_base64 else ""
 
-# --- 写真とボタンを完全一体化させるためのカスタムCSS（f-string不使用で修正済み） ---
+# --- スマホ・PC両対応の最適化CSS ---
 st.markdown(
-    f"""
+    """
     <style>
-    .block-container {{
+    .block-container {
         padding-top: 1rem !important;
         padding-bottom: 5rem !important;
-    }}
-    div.stSelectbox, div.stTextInput, div.stRadio {{
+    }
+    div.stSelectbox, div.stTextInput, div.stRadio {
         margin-bottom: 2px !important;
-    }}
-    .strike-zone-wrapper {{
-        position: relative;
-        width: 100%;
-        max-width: 400px;
-        margin: 0 auto;
-        aspect-ratio: 1 / 1;
-        background-image: url("data:image/jpeg;base64,{bg_base64}");
-        background-size: cover;
-        background-position: center;
-        border-radius: 8px;
-        border: 2px solid #555;
-        padding: 4px;
-    }}
-    .grid-container {{
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        grid-template-rows: repeat(5, 1fr);
-        width: 100%;
-        height: 100%;
-        gap: 2px;
-    }}
-    .grid-container div.stButton > button {{
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 0px !important;
-        padding: 0px !important;
-        font-size: 11px !important;
-        font-weight: bold !important;
-        background-color: rgba(20, 20, 20, 0.45) !important;
-        color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.5) !important;
-        border-radius: 3px !important;
-    }}
-    .grid-container div.stButton > button[kind="primary"] {{
-        background-color: rgba(255, 75, 75, 0.9) !important;
-        color: #ffffff !important;
-        border: 2px solid #ffffff !important;
-    }}
-    [data-testid="stDataFrame"] {{
+    }
+    [data-testid="stDataFrame"] {
         overflow-x: hidden !important;
-    }}
-    [data-testid="stDataFrame"] > div {{
+    }
+    [data-testid="stDataFrame"] > div {
         overflow-x: hidden !important;
-    }}
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -444,7 +407,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真を背景にしたキャッチャー目線コース選択ボード ---
+  # --- ④ 写真を背景にしたインタラクティブ・コース選択ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -453,28 +416,100 @@ with tab1:
   st.markdown(
       f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
+  st.caption("💡 下の写真のマス目をタッチ（クリック）すると選択できます。")
 
-  # 写真を背景にしたラッパーの中に25マスのボタンをグリッド配置
-  st.markdown(
-      '<div class="strike-zone-wrapper"><div class="grid-container">',
-      unsafe_allow_html=True,
+  # 25マスの座標作成
+  x_coords = []
+  y_coords = []
+  text_labels = []
+
+  for r in range(5):
+    for c in range(5):
+      zone_num = r * 5 + c + 1
+      x_coords.append(c + 0.5)
+      y_coords.append(4.5 - r)
+      if zone_num == st.session_state.selected_course:
+        text_labels.append(f"★{zone_num}")
+      else:
+        text_labels.append(str(zone_num))
+
+  fig_board = go.Figure()
+
+  # 25マスのテキスト（数字）を配置
+  fig_board.add_trace(
+      go.Scatter(
+          x=x_coords,
+          y=y_coords,
+          mode="text",
+          text=text_labels,
+          textfont=dict(size=15, color="white", family="sans-serif"),
+          hoverinfo="skip",
+      )
   )
 
-  for zone_num in range(1, 26):
-    is_selected = zone_num == st.session_state.selected_course
-    btn_kind = "primary" if is_selected else "secondary"
-    label = f"★{zone_num}" if is_selected else f"{zone_num}"
+  # 選択中のマスを赤くハイライト
+  sel_idx = st.session_state.selected_course - 1
+  fig_board.add_trace(
+      go.Scatter(
+          x=[x_coords[sel_idx]],
+          y=[y_coords[sel_idx]],
+          mode="markers",
+          marker=dict(size=52, color="rgba(255, 75, 75, 0.85)", symbol="square"),
+          hoverinfo="skip",
+      )
+  )
 
-    if st.button(
-        label,
-        key=f"grid_btn_{zone_num}",
-        type=btn_kind,
-        use_container_width=True,
-    ):
-      st.session_state.selected_course = zone_num
-      st.rerun()
+  # 背景に画像（Base64）を正確に敷き詰める
+  if image_uri:
+    fig_board.update_layout(
+        images=[
+            dict(
+                source=image_uri,
+                xref="x",
+                yref="y",
+                x=0,
+                y=5,
+                sizex=5,
+                sizey=5,
+                sizing="stretch",
+                opacity=1.0,
+                layer="below",
+            )
+        ]
+    )
 
-  st.markdown("</div></div>", unsafe_allow_html=True)
+  fig_board.update_layout(
+      xaxis=dict(range=[0, 5], showgrid=False, zeroline=False, visible=False),
+      yaxis=dict(range=[0, 5], showgrid=False, zeroline=False, visible=False),
+      margin=dict(t=5, b=5, l=5, r=5),
+      height=380,
+      showlegend=False,
+      paper_bgcolor="rgba(0,0,0,0)",
+      plot_bgcolor="rgba(0,0,0,0)",
+  )
+
+  # タッチ（クリック）イベントを受け取る
+  selected_point = st.plotly_chart(
+      fig_board,
+      use_container_width=True,
+      on_select="rerun",
+      selection_mode="points",
+      config={
+          "scrollZoom": False,
+          "displayModeBar": False,
+          "staticPlot": False,
+      },
+      key="interactive_strike_zone",
+  )
+
+  if selected_point and "selection" in selected_point:
+    points = selected_point["selection"].get("points", [])
+    if points:
+      p_idx = points[0].get("pointIndex", 0) % 25
+      new_course = p_idx + 1
+      if st.session_state.selected_course != new_course:
+        st.session_state.selected_course = new_course
+        st.rerun()
 
   st.markdown("<br>", unsafe_allow_html=True)
 
