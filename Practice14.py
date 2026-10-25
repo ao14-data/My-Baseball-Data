@@ -1,3 +1,4 @@
+import base64
 import os
 import re
 from datetime import date
@@ -13,30 +14,58 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- キャッチャー目線イラスト背景 ＆ スマホ最適化CSS ---
+CSV_FILE = "baseball_data.csv"
+BG_IMAGE_FILE = "strike_zone_bg.jpg"
+
+
+# --- 画像をBase64に変換してCSSで背景にするための関数 ---
+def get_base64_image(image_path):
+  if os.path.exists(image_path):
+    with open(image_path, "rb") as f:
+      data = f.read()
+    return base64.b64encode(data).decode("utf-8")
+  return ""
+
+
+bg_base64 = get_base64_image(BG_IMAGE_FILE)
+
+# --- 写真とボタンを重ね合わせるためのカスタムCSS ---
 st.markdown(
-    """
+    f"""
     <style>
-    /* 全体の余白調整 */
-    .block-container {
-        padding-top: 1rem !important;
+    /* 画面全体のコンテナ余白調整 */
+    .block-container {{
+        padding-top: 1.5rem !important;
         padding-bottom: 5rem !important;
-    }
+    }}
     
     /* 5等分のカラムを強制固定 */
-    [data-testid="column"] {
+    [data-testid="column"] {{
         min-width: 0px !important;
         flex: 1 1 0px !important;
         padding: 0px 1px !important;
-    }
+    }}
     
     /* セレクトボックス等の高さを確保 */
-    div.stSelectbox, div.stTextInput, div.stRadio {
+    div.stSelectbox, div.stTextInput, div.stRadio {{
         margin-bottom: 2px !important;
-    }
+    }}
     
-    /* コース選択ボタンの見た目を半透明にしてイラストに馴染ませる */
-    div.stButton > button {
+    /* --- キャッチャー目線ボード（背景画像の上にボタンを重ねるコンテナ） --- */
+    .strike-zone-container {{
+        position: relative;
+        background-image: url("data:image/jpeg;base64,{bg_base64}");
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        padding: 12px;
+        border-radius: 8px;
+        max-width: 450px;
+        margin: 0 auto;
+    }}
+    
+    /* ボタンを半透明にして、下の写真のマス目が透けて見えるようにする */
+    .strike-zone-container div.stButton > button {{
         padding: 2px 0px !important;
         font-size: 12px !important;
         font-weight: bold !important;
@@ -44,26 +73,22 @@ st.markdown(
         min-height: 42px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: rgba(20, 20, 20, 0.75) !important;
+        background-color: rgba(20, 20, 20, 0.5) !important;
         color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.4) !important;
         border-radius: 4px !important;
-    }
+    }}
     
     /* 選択中のボタン（★）の強調デザイン */
-    div.stButton > button[kind="primary"] {
-        background-color: rgba(255, 75, 75, 0.9) !important;
+    .strike-zone-container div.stButton > button[kind="primary"] {{
+        background-color: rgba(255, 75, 75, 0.85) !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
-    }
+    }}
     </style>
     """,
     unsafe_allow_html=True,
 )
-
-# CSVファイルのパス
-CSV_FILE = "baseball_data.csv"
-BG_IMAGE_FILE = "strike_zone_bg.jpg"
 
 
 # --- 初期データの生成／読み込み ---
@@ -421,7 +446,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ キャッチャー目線イラストを背景にしたコース選択ボード ---
+  # --- ④ 写真を背景にしたキャッチャー目線コース選択ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -431,29 +456,21 @@ with tab1:
       f"##### 🥎 キャッチャー目線コース選択 ➔ 選択中: **{st.session_state.selected_course}番** {zone_label}"
   )
 
-  # 画像ファイルが存在する場合は背景として表示し、その上にボタンを配置
-  if os.path.exists(BG_IMAGE_FILE):
-    st.image(
-        BG_IMAGE_FILE,
-        caption="キャッチャー目線ストライクゾーン",
-        use_container_width=True,
-    )
-
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
+
+  # 背景画像の上にボタンを綺麗に重ね合わせるコンテナを開始
+  st.markdown('<div class="strike-zone-container">', unsafe_allow_html=True)
 
   for r in range(5):
     cols = st.columns(5)
     for c in range(5):
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
-      is_strike = zone_num in strike_zones_set
 
       btn_kind = "primary" if is_selected else "secondary"
 
       if is_selected:
-        label = f"★ {zone_num}"
-      elif is_strike:
-        label = f"[ {zone_num} ]"
+        label = f"★{zone_num}"
       else:
         label = f"{zone_num}"
 
@@ -465,6 +482,8 @@ with tab1:
       ):
         st.session_state.selected_course = zone_num
         st.rerun()
+
+  st.markdown("</div>", unsafe_allow_html=True)  # コンテナ終了
 
   st.markdown("<br>", unsafe_allow_html=True)
 
