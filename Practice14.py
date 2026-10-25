@@ -45,8 +45,7 @@ st.markdown(
         box-shadow: 0 8px 16px rgba(0,0,0,0.4);
     }
     
-    /* --- 外周のボールゾーンボタン ---
-       ※ 5x5グリッドで strike zone 以外（外側の16マス）に適用されるベーススタイル */
+    /* --- 外周のボールゾーンボタン --- */
     .catcher-board div.stButton > button {
         padding: 2px 0px !important;
         font-size: 13px !important;
@@ -154,11 +153,12 @@ df_data = load_or_init_data()
 # --- タイトル ---
 st.title("⚾ データ分析＋α")
 
-# タブの作成
-tab1, tab2, tab3 = st.tabs([
+# タブの作成（「試合別まとめ」を追加）
+tab1, tab2, tab3, tab4 = st.tabs([
     "📝 データ入力",
     "🗂️ 打席一覧・1球データ詳細",
     "🔥 配球ヒートマップ分析",
+    "📋 試合別まとめ",
 ])
 
 
@@ -449,7 +449,7 @@ with tab1:
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  # キャッチャー目線ボード（球場・ストライクゾーン枠を再現）を開始
+  # キャッチャー目線ボードを開始
   st.markdown('<div class="catcher-board">', unsafe_allow_html=True)
 
   for r in range(5):
@@ -459,19 +459,17 @@ with tab1:
       is_selected = zone_num == st.session_state.selected_course
       is_strike = zone_num in strike_zones_set
 
-      # 選択中なら赤、ストライクゾーンならゴールド系、ボールならダーク系
       if is_selected:
         btn_kind = "primary"
         label = f"★ {zone_num}"
       else:
         btn_kind = "secondary"
         if is_strike:
-          label = f"◆ {zone_num}"  # ストライクゾーンの目印
+          label = f"◆ {zone_num}"
         else:
           label = f"{zone_num}"
 
       with cols[c]:
-        # ストライクゾーンのボタンだけに特別なスタイル（ゴールド枠・茶系背景）をインライン/Markdownで付与
         if is_strike and not is_selected:
           st.markdown(
               f"""
@@ -495,7 +493,7 @@ with tab1:
           st.session_state.selected_course = zone_num
           st.rerun()
 
-  st.markdown("</div>", unsafe_allow_html=True)  # catcher-board 終了
+  st.markdown("</div>", unsafe_allow_html=True)
 
   st.markdown("<br>", unsafe_allow_html=True)
 
@@ -964,3 +962,63 @@ with tab3:
               "staticPlot": True,
           },
       )
+
+
+# ==========================================
+# 【タブ4】試合別まとめ
+# ==========================================
+with tab4:
+  st.subheader("📋 試合別まとめ（ゲーム単位のサマリー）")
+
+  df_all_games = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
+
+  if df_all_games.empty:
+    st.info("登録されているデータはありません。")
+  else:
+    # 試合ごとに集計
+    game_summary_list = []
+    for (game_id, date_str), g_df in df_all_games.groupby(["試合ID", "日付"]):
+      pitchers = ", ".join(g_df["投手名"].dropna().unique())
+      total_pitches = len(g_df)
+      unique_batters = g_df["打者名"].nunique()
+      game_summary_list.append({
+          "日付": date_str,
+          "試合名": game_id,
+          "登板投手": pitchers,
+          "総投球数": total_pitches,
+          "対戦打者数": unique_batters,
+      })
+
+    df_game_summary = pd.DataFrame(game_summary_list)
+
+    st.markdown("##### 🏟️ 登録されている試合一覧")
+    st.dataframe(df_game_summary, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    st.markdown("##### 🔍 特定の試合を選択して詳細を確認・エクスポート")
+    unique_games = sorted(df_all_games["試合ID"].unique())
+    selected_game_view = st.selectbox("詳細を見る試合を選択", unique_games)
+
+    df_selected_game_data = df_all_games[
+        df_all_games["試合ID"] == selected_game_view
+    ]
+
+    st.markdown(
+        f"**【試合名: {selected_game_view}】の全投球データ ({len(df_selected_game_data)}球)**"
+    )
+    st.dataframe(
+        df_selected_game_data, use_container_width=True, hide_index=True
+    )
+
+    # CSVダウンロード機能
+    csv_bytes = df_selected_game_data.to_csv(index=False, encoding="utf-8-sig").encode(
+        "utf-8-sig"
+    )
+    st.download_button(
+        label=f"📥 「{selected_game_view}」のデータをCSVでダウンロード",
+        data=csv_bytes,
+        file_name=f"baseball_data_{selected_game_view}.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
