@@ -1,4 +1,3 @@
-import base64
 import os
 import re
 from datetime import date
@@ -17,76 +16,23 @@ st.set_page_config(
 CSV_FILE = "baseball_data.csv"
 BG_IMAGE_FILE = "strike_zone_bg.jpg"
 
-
-# --- 画像をBase64に変換してCSS背景にするための関数 ---
-def get_base64_image(image_path):
-  if os.path.exists(image_path):
-    with open(image_path, "rb") as f:
-      data = f.read()
-    return base64.b64encode(data).decode("utf-8")
-  return ""
-
-
-bg_base64 = get_base64_image(BG_IMAGE_FILE)
-
-# --- 写真の比率を保ち、ボタンを綺麗に重ね合わせるためのCSS ---
+# --- スマホ・PC両対応の最適化CSS ---
 st.markdown(
-    f"""
+    """
     <style>
-    /* 画面全体のコンテナ余白調整 */
-    .block-container {{
-        padding-top: 1.5rem !important;
+    .block-container {
+        padding-top: 1rem !important;
         padding-bottom: 5rem !important;
-    }}
-    
-    /* 5等分のカラムを強制固定 */
-    [data-testid="column"] {{
-        min-width: 0px !important;
-        flex: 1 1 0px !important;
-        padding: 0px 1px !important;
-    }}
-    
-    /* セレクトボックス等の高さを確保 */
-    div.stSelectbox, div.stTextInput, div.stRadio {{
+    }
+    div.stSelectbox, div.stTextInput, div.stRadio {
         margin-bottom: 2px !important;
-    }}
-    
-    /* --- キャッチャー目線ボード（正方形を維持し、写真の上にボタンを重ねる） --- */
-    .strike-zone-container {{
-        position: relative;
-        background-image: url("data:image/jpeg;base64,{bg_base64}");
-        background-size: contain;
-        background-position: center;
-        background-repeat: no-repeat;
-        aspect-ratio: 1 / 1;
-        width: 100%;
-        max-width: 420px;
-        margin: 0 auto;
-        padding: 12px;
-        border-radius: 8px;
-    }}
-    
-    /* ボタンの背景を半透明にして、下の写真のマス目（25分割）を透けさせる */
-    .strike-zone-container div.stButton > button {{
-        padding: 0px !important;
-        font-size: 11px !important;
-        font-weight: bold !important;
-        height: 38px !important;
-        min-height: 38px !important;
-        margin: 1px !important;
-        width: 100% !important;
-        background-color: rgba(0, 0, 0, 0.45) !important;
-        color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.5) !important;
-        border-radius: 4px !important;
-    }}
-    
-    /* 選択中のボタン（★）は赤く目立たせる */
-    .strike-zone-container div.stButton > button[kind="primary"] {{
-        background-color: rgba(255, 75, 75, 0.9) !important;
-        color: #ffffff !important;
-        border: 2px solid #ffffff !important;
-    }}
+    }
+    [data-testid="stDataFrame"] {
+        overflow-x: hidden !important;
+    }
+    [data-testid="stDataFrame"] > div {
+        overflow-x: hidden !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -140,7 +86,6 @@ def load_or_init_data():
             "日付": "2026-10-18",
             "試合ID": "公式戦",
             "投手名": "あお",
-            "打者名": "佐藤",
             "打者左右": "L",
             "ボール": 0,
             "ストライク": 0,
@@ -164,8 +109,7 @@ def load_or_init_data():
 # データ読み込み
 df_data = load_or_init_data()
 
-# --- タイトル（アンカー） ---
-st.markdown('<div id="top-anchor"></div>', unsafe_allow_html=True)
+# --- タイトル ---
 st.title("⚾ データ分析＋α")
 
 # タブの作成
@@ -448,7 +392,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真を背景にしたキャッチャー目線コース選択ボード ---
+  # --- ④ 写真を背景にしたインタラクティブ・コース選択ボード（Plotly統合版） ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -457,35 +401,111 @@ with tab1:
   st.markdown(
       f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
+  st.caption(
+      "💡 下の写真（ボード）のマス目をタッチ（クリック）するとコースが選ばれます。"
+  )
 
-  strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
-
-  # 背景の正方形エリアの中に25マスのボタンを重ねる
-  st.markdown('<div class="strike-zone-container">', unsafe_allow_html=True)
+  # 25マスの中心座標を計算してプロット配置
+  x_coords = []
+  y_coords = []
+  text_labels = []
+  custom_data = []
 
   for r in range(5):
-    cols = st.columns(5)
     for c in range(5):
       zone_num = r * 5 + c + 1
-      is_selected = zone_num == st.session_state.selected_course
-
-      btn_kind = "primary" if is_selected else "secondary"
-
-      if is_selected:
-        label = f"★{zone_num}"
+      x_coords.append(c + 0.5)
+      y_coords.append(4.5 - r)  # 上から下へ1〜25番
+      if zone_num == st.session_state.selected_course:
+        text_labels.append(f"★{zone_num}")
       else:
-        label = f"{zone_num}"
+        text_labels.append(str(zone_num))
+      custom_data.append(zone_num)
 
-      if cols[c].button(
-          label,
-          key=f"c_btn_{zone_num}",
-          type=btn_kind,
-          use_container_width=True,
-      ):
-        st.session_state.selected_course = zone_num
-        st.rerun()
+  fig_board = go.Figure()
 
-  st.markdown("</div>", unsafe_allow_html=True)
+  # 選択中のコースを強調するマーカー
+  sel_idx = st.session_state.selected_course - 1
+  sel_x = [x_coords[sel_idx]]
+  sel_y = [y_coords[sel_idx]]
+
+  fig_board.add_trace(
+      go.Scatter(
+          x=x_coords,
+          y=y_coords,
+          mode="text",
+          text=text_labels,
+          textfont=dict(size=16, color="white", weight="bold"),
+          customdata=custom_data,
+          hoverinfo="skip",
+      )
+  )
+
+  # 選択中のマスに赤いハイライトを表示
+  fig_board.add_trace(
+      go.Scatter(
+          x=sel_x,
+          y=sel_y,
+          mode="markers",
+          marker=dict(size=50, color="rgba(255, 75, 75, 0.8)", symbol="square"),
+          hoverinfo="skip",
+      )
+  )
+
+  # 背景画像の設定
+  if os.path.exists(BG_IMAGE_FILE):
+    fig_board.update_layout(
+        images=[
+            dict(
+                source=BG_IMAGE_FILE,
+                xref="x",
+                yref="y",
+                x=0,
+                y=5,
+                sizex=5,
+                sizey=5,
+                sizing="stretch",
+                opacity=1.0,
+                layer="below",
+            )
+        ]
+    )
+
+  fig_board.update_layout(
+      xaxis=dict(range=[0, 5], showgrid=False, zeroline=False, visible=False),
+      yaxis=dict(range=[0, 5], showgrid=False, zeroline=False, visible=False),
+      margin=dict(t=10, b=10, l=10, r=10),
+      height=380,
+      showlegend=False,
+      paper_bgcolor="rgba(0,0,0,0)",
+      plot_bgcolor="rgba(0,0,0,0)",
+  )
+
+  # グラフ上のクリックイベントを受け取る
+  selected_point = st.plotly_chart(
+      fig_board,
+      use_container_width=True,
+      on_select="rerun",
+      selection_mode="points",
+      config={
+          "scrollZoom": False,
+          "displayModeBar": False,
+          "staticPlot": False,
+      },
+      key="interactive_strike_zone",
+  )
+
+  # グラフがクリックされた場合の処理
+  if selected_point and "selection" in selected_point:
+    points = selected_point["selection"].get("points", [])
+    if points:
+      clicked_point = points[0]
+      if "pointIndex" in clicked_point:
+        p_idx = clicked_point["pointIndex"] % 25  # トレースのインデックス対応
+        new_course = p_idx + 1
+        if st.session_state.selected_course != new_course:
+          st.session_state.selected_course = new_course
+          st.rerun()
 
   st.markdown("<br>", unsafe_allow_html=True)
 
