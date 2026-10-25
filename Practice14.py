@@ -81,6 +81,22 @@ st.markdown(
 
 # --- 初期データの生成／読み込み ---
 def load_or_init_data():
+  expected_columns = [
+      "日付",
+      "試合ID",
+      "投手名",
+      "打者名",
+      "打者左右",
+      "イニング",
+      "アウト数",
+      "ランナー",
+      "ボール",
+      "ストライク",
+      "球種",
+      "コース",
+      "結果",
+  ]
+
   if not os.path.exists(CSV_FILE):
     initial_data = pd.DataFrame([
         {
@@ -89,9 +105,11 @@ def load_or_init_data():
             "投手名": "あお",
             "打者名": "鈴木",
             "打者左右": "R",
+            "イニング": "1回表",
+            "アウト数": 0,
+            "ランナー": "なし",
             "ボール": 0,
             "ストライク": 0,
-            "アウト数": 0,
             "球種": "ストレート",
             "コース": 13,
             "結果": "空振り",
@@ -102,9 +120,11 @@ def load_or_init_data():
             "投手名": "あお",
             "打者名": "鈴木",
             "打者左右": "R",
+            "イニング": "1回表",
+            "アウト数": 0,
+            "ランナー": "なし",
             "ボール": 0,
             "ストライク": 1,
-            "アウト数": 0,
             "球種": "スライダー",
             "コース": 18,
             "結果": "ボール",
@@ -115,9 +135,11 @@ def load_or_init_data():
             "投手名": "あお",
             "打者名": "鈴木",
             "打者左右": "R",
+            "イニング": "1回表",
+            "アウト数": 0,
+            "ランナー": "なし",
             "ボール": 1,
             "ストライク": 1,
-            "アウト数": 0,
             "球種": "カーブ",
             "コース": 8,
             "結果": "見逃しストライク",
@@ -128,22 +150,34 @@ def load_or_init_data():
             "投手名": "あお",
             "打者名": "佐藤",
             "打者左右": "L",
+            "イニング": "1回表",
+            "アウト数": 0,
+            "ランナー": "なし",
             "ボール": 0,
             "ストライク": 0,
-            "アウト数": 1,
             "球種": "カットボール",
             "コース": 12,
-            "結果": "安打 (単打)",
+            "結果": "安打（センター前）",
         },
     ])
     initial_data.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
 
   df = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
 
-  if "日付" not in df.columns:
-    df.insert(0, "日付", str(date.today()))
-    df.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
+  # 旧形式のCSVファイルに対応するためのカラム補正
+  for col in expected_columns:
+    if col not in df.columns:
+      if col == "イニング":
+        df["イニング"] = "1回表"
+      elif col == "アウト数":
+        df["アウト数"] = 0
+      elif col == "ランナー":
+        df["ランナー"] = "なし"
+      else:
+        df[col] = "-"
 
+  df = df[expected_columns]
+  df.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
   return df
 
 
@@ -153,19 +187,77 @@ df_data = load_or_init_data()
 # --- タイトル ---
 st.title("⚾ データ分析＋α")
 
-# タブの作成（「試合別まとめ」を追加）
+# タブの作成
 tab1, tab2, tab3, tab4 = st.tabs([
+    "📋 試合一覧",
     "📝 データ入力",
     "🗂️ 打席一覧・1球データ詳細",
     "🔥 配球ヒートマップ分析",
-    "📋 試合別まとめ",
 ])
 
 
 # ==========================================
-# 【タブ1】データ入力フォーム
+# 【タブ1】試合一覧
 # ==========================================
 with tab1:
+  st.subheader("📋 試合一覧（ゲーム単位のサマリー）")
+
+  df_all_games = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
+
+  if df_all_games.empty:
+    st.info("登録されているデータはありません。")
+  else:
+    game_summary_list = []
+    for (game_id, date_str), g_df in df_all_games.groupby(["試合ID", "日付"]):
+      pitchers = ", ".join(g_df["投手名"].dropna().unique())
+      total_pitches = len(g_df)
+      unique_batters = g_df["打者名"].nunique()
+      game_summary_list.append({
+          "日付": date_str,
+          "試合名": game_id,
+          "登板投手": pitchers,
+          "総投球数": total_pitches,
+          "対戦打者数": unique_batters,
+      })
+
+    df_game_summary = pd.DataFrame(game_summary_list)
+
+    st.markdown("##### 🏟️ 登録されている試合一覧")
+    st.dataframe(df_game_summary, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    st.markdown("##### 🔍 特定の試合を選択して詳細を確認・エクスポート")
+    unique_games = sorted(df_all_games["試合ID"].unique())
+    selected_game_view = st.selectbox("詳細を見る試合を選択", unique_games)
+
+    df_selected_game_data = df_all_games[
+        df_all_games["試合ID"] == selected_game_view
+    ]
+
+    st.markdown(
+        f"**【試合名: {selected_game_view}】の全投球データ ({len(df_selected_game_data)}球)**"
+    )
+    st.dataframe(
+        df_selected_game_data, use_container_width=True, hide_index=True
+    )
+
+    csv_bytes = df_selected_game_data.to_csv(
+        index=False, encoding="utf-8-sig"
+    ).encode("utf-8-sig")
+    st.download_button(
+        label=f"📥 「{selected_game_view}」のデータをCSVでダウンロード",
+        data=csv_bytes,
+        file_name=f"baseball_data_{selected_game_view}.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+# ==========================================
+# 【タブ2】データ入力フォーム
+# ==========================================
+with tab2:
   today = date.today()
 
   # --- セッション状態の初期化 ---
@@ -202,6 +294,8 @@ with tab1:
     st.session_state.balls = 0
   if "strikes" not in st.session_state:
     st.session_state.strikes = 0
+  if "outs" not in st.session_state:
+    st.session_state.outs = 0
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
@@ -332,8 +426,57 @@ with tab1:
     )
     st.session_state.current_batter_side = batter_side
 
-  # --- ③ カウント ＆ 球種 ＆ 結果 ---
-  det_col1, det_col2, det_col3 = st.columns([1.5, 2, 2])
+  # --- ③ 新規追加：イニング ＆ アウト数 ＆ ランナー ---
+  info_col1, info_col2, info_col3 = st.columns(3)
+
+  with info_col1:
+    inning_options = [
+        "1回表",
+        "1回裏",
+        "2回表",
+        "2回裏",
+        "3回表",
+        "3回裏",
+        "4回表",
+        "4回裏",
+        "5回表",
+        "5回裏",
+        "6回表",
+        "6回裏",
+        "7回表",
+        "7回裏",
+        "8回表",
+        "8回裏",
+        "9回表",
+        "9回裏",
+        "延長1回表〜",
+    ]
+    selected_inning = st.selectbox("イニング", inning_options)
+
+  with info_col2:
+    out_options = [0, 1, 2]
+    selected_outs = st.selectbox(
+        "アウト数", out_options, index=st.session_state.outs
+    )
+    st.session_state.outs = selected_outs
+
+  with info_col3:
+    runner_options = [
+        "なし",
+        "1塁",
+        "2塁",
+        "3塁",
+        "1,2塁",
+        "1,3塁",
+        "2,3塁",
+        "満塁",
+    ]
+    selected_runner = st.selectbox("ランナー", runner_options)
+
+  st.markdown("---")
+
+  # --- ④ カウント ＆ 球種 ＆ 結果（打球方向含む） ---
+  det_col1, det_col2, det_col3 = st.columns([1.2, 1.8, 2.2])
 
   with det_col1:
     count_options = [
@@ -394,14 +537,19 @@ with tab1:
         "見逃しストライク",
         "空振り",
         "ファウル",
-        "安打 (単打)",
-        "長打",
-        "ゴロアウト",
-        "フライアウト",
+        "安打（レフト前）",
+        "安打（センター前）",
+        "安打（ライト前）",
+        "長打（二塁打）",
+        "長打（三塁打）",
+        "本塁打",
+        "ゴロアウト（内野）",
+        "フライアウト（外野）",
         "空振り三振",
         "見逃し三振",
         "四球",
         "死球",
+        "その他（野手選択など）",
     ]
 
     filtered_result_options = []
@@ -429,12 +577,12 @@ with tab1:
     )
 
     result = st.selectbox(
-        "結果", filtered_result_options, index=default_result_idx
+        "結果（打球方向含む）", filtered_result_options, index=default_result_idx
     )
 
   st.divider()
 
-  # --- ④ ストライクゾーン（中央9マス）とボールゾーンが視覚的に分かる専用ボード ---
+  # --- ⑤ ストライクゾーン（中央9マス）とボールゾーンが視覚的に分かる専用ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -449,7 +597,6 @@ with tab1:
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  # キャッチャー目線ボードを開始
   st.markdown('<div class="catcher-board">', unsafe_allow_html=True)
 
   for r in range(5):
@@ -497,10 +644,11 @@ with tab1:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # --- ⑤ 登録ボタン ---
+  # --- ⑥ 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", type="primary", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
+    current_outs = st.session_state.outs
 
     new_data = pd.DataFrame([{
         "日付": str(formatted_date),
@@ -508,9 +656,11 @@ with tab1:
         "投手名": st.session_state.pitcher_name,
         "打者名": st.session_state.batter_name,
         "打者左右": batter_side,
+        "イニング": selected_inning,
+        "アウト数": current_outs,
+        "ランナー": selected_runner,
         "ボール": current_b,
         "ストライク": current_s,
-        "アウト数": 0,
         "球種": pitch_type,
         "コース": st.session_state.selected_course,
         "結果": result,
@@ -528,6 +678,7 @@ with tab1:
       else:
         st.session_state.balls = 0
         st.session_state.strikes = 0
+        st.session_state.outs = min(2, current_outs + 1)  # 四球の場合はアウト増えないが簡易処理
         is_at_bat_over = True
     elif result in ["見逃しストライク", "空振り"]:
       if current_s < 2:
@@ -535,13 +686,19 @@ with tab1:
       else:
         st.session_state.balls = 0
         st.session_state.strikes = 0
+        st.session_state.outs = (
+            (current_outs + 1) if current_outs < 2 else 0
+        )
         is_at_bat_over = True
     elif result == "ファウル":
       if current_s < 2:
         st.session_state.strikes += 1
     else:
+      # 安打やアウトなどの打席終了結果
       st.session_state.balls = 0
       st.session_state.strikes = 0
+      if "アウト" in result or "三振" in result:
+        st.session_state.outs = (current_outs + 1) if current_outs < 2 else 0
       is_at_bat_over = True
 
     if is_at_bat_over:
@@ -666,9 +823,9 @@ def render_comprehensive_filter(df, key_prefix="filter"):
 
 
 # ==========================================
-# 【タブ2】打席一覧・1球データ詳細
+# 【タブ3】打席一覧・1球データ詳細
 # ==========================================
-with tab2:
+with tab3:
   st.subheader("🗂️ 打席一覧・1球データ詳細")
 
   df_all = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
@@ -689,12 +846,13 @@ with tab2:
             or prev["投手名"] != curr["投手名"]
             or prev["打者名"] != curr["打者名"]
             or prev["日付"] != curr["日付"]
+            or prev["イニング"] != curr["イニング"]
         ):
           group_id += 1
       df_with_group.iat[i, df_with_group.columns.get_loc("group_id")] = group_id
 
     df_matched_pitches = render_comprehensive_filter(
-        df_with_group, key_prefix="tab2_filter"
+        df_with_group, key_prefix="tab3_filter"
     )
 
     if df_matched_pitches.empty:
@@ -712,6 +870,7 @@ with tab2:
             "打席ID": g_id,
             "日付": last_row["日付"],
             "試合名": last_row["試合ID"],
+            "イニング": last_row["イニング"],
             "投手": last_row["投手名"],
             "打者": last_row["打者名"],
             "打順左右": last_row["打者左右"],
@@ -736,7 +895,7 @@ with tab2:
 
       ab_options = {}
       for idx, row in df_ab_summary.iterrows():
-        label = f"[{row['日付']} {row['試合名']}] {row['投手']} vs {row['打者']} ({row['投球数']}球 - 最終結果: {row['最終結果']})"
+        label = f"[{row['日付']} {row['試合名']} {row['イニング']}] 投手:{row['投手']} vs 打者:{row['打者']} ({row['投球数']}球 - 結果: {row['最終結果']})"
         ab_options[label] = row["打席ID"]
 
       selected_ab_label = st.selectbox(
@@ -756,7 +915,16 @@ with tab2:
           + selected_pitches["ストライク"].astype(str)
       )
 
-      display_cols = ["球数", "カウント(B-S)", "球種", "コース", "結果"]
+      display_cols = [
+          "球数",
+          "イニング",
+          "アウト数",
+          "ランナー",
+          "カウント(B-S)",
+          "球種",
+          "コース",
+          "結果",
+      ]
       st.markdown(f"**【選択中の打席の全配球詳細】** `{selected_ab_label}`")
       st.dataframe(
           selected_pitches[display_cols],
@@ -785,6 +953,7 @@ with tab2:
                 & (df_real_updated["試合ID"] == r["試合ID"])
                 & (df_real_updated["投手名"] == r["投手名"])
                 & (df_real_updated["打者名"] == r["打者名"])
+                & (df_real_updated["イニング"] == r["イニング"])
                 & (df_real_updated["コース"] == r["コース"])
                 & (df_real_updated["結果"] == r["結果"])
             ].index
@@ -812,9 +981,11 @@ with tab2:
                   "投手名",
                   "打者名",
                   "打者左右",
+                  "イニング",
+                  "アウト数",
+                  "ランナー",
                   "ボール",
                   "ストライク",
-                  "アウト数",
                   "球種",
                   "コース",
                   "結果",
@@ -826,9 +997,9 @@ with tab2:
 
 
 # ==========================================
-# 【タブ3】配球ヒートマップ分析 ＆ 各球種の投球割合集計
+# 【タブ4】配球ヒートマップ分析 ＆ 各球種の投球割合集計
 # ==========================================
-with tab3:
+with tab4:
   st.subheader("🔥 25分割 配球ヒートマップ分析 ＆ 球種割合")
 
   df_current = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
@@ -962,63 +1133,3 @@ with tab3:
               "staticPlot": True,
           },
       )
-
-
-# ==========================================
-# 【タブ4】試合別まとめ
-# ==========================================
-with tab4:
-  st.subheader("📋 試合別まとめ（ゲーム単位のサマリー）")
-
-  df_all_games = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
-
-  if df_all_games.empty:
-    st.info("登録されているデータはありません。")
-  else:
-    # 試合ごとに集計
-    game_summary_list = []
-    for (game_id, date_str), g_df in df_all_games.groupby(["試合ID", "日付"]):
-      pitchers = ", ".join(g_df["投手名"].dropna().unique())
-      total_pitches = len(g_df)
-      unique_batters = g_df["打者名"].nunique()
-      game_summary_list.append({
-          "日付": date_str,
-          "試合名": game_id,
-          "登板投手": pitchers,
-          "総投球数": total_pitches,
-          "対戦打者数": unique_batters,
-      })
-
-    df_game_summary = pd.DataFrame(game_summary_list)
-
-    st.markdown("##### 🏟️ 登録されている試合一覧")
-    st.dataframe(df_game_summary, use_container_width=True, hide_index=True)
-
-    st.divider()
-
-    st.markdown("##### 🔍 特定の試合を選択して詳細を確認・エクスポート")
-    unique_games = sorted(df_all_games["試合ID"].unique())
-    selected_game_view = st.selectbox("詳細を見る試合を選択", unique_games)
-
-    df_selected_game_data = df_all_games[
-        df_all_games["試合ID"] == selected_game_view
-    ]
-
-    st.markdown(
-        f"**【試合名: {selected_game_view}】の全投球データ ({len(df_selected_game_data)}球)**"
-    )
-    st.dataframe(
-        df_selected_game_data, use_container_width=True, hide_index=True
-    )
-
-    # CSVダウンロード機能
-    csv_bytes = df_selected_game_data.to_csv(index=False, encoding="utf-8-sig").encode(
-        "utf-8-sig"
-    )
-    st.download_button(
-        label=f"📥 「{selected_game_view}」のデータをCSVでダウンロード",
-        data=csv_bytes,
-        file_name=f"baseball_data_{selected_game_view}.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
