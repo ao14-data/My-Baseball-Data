@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- キャッチャー目線デザインを再現するカスタムCSS ---
+# --- キャッチャー目線イラスト背景 ＆ スマホ最適化CSS ---
 st.markdown(
     """
     <style>
@@ -35,7 +35,7 @@ st.markdown(
         margin-bottom: 2px !important;
     }
     
-    /* --- 周囲のボールゾーン（外側の16マス）のデザイン --- */
+    /* コース選択ボタンの見た目を半透明にしてイラストに馴染ませる */
     div.stButton > button {
         padding: 2px 0px !important;
         font-size: 12px !important;
@@ -44,18 +44,15 @@ st.markdown(
         min-height: 42px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: #262626 !important;
-        color: #b0b0b0 !important;
-        border: 1px solid #444444 !important;
+        background-color: rgba(20, 20, 20, 0.75) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 4px !important;
     }
     
-    /* --- 中央のストライクゾーン（3×3の9マス：7,8,9, 12,13,14, 17,18,19） --- */
-    /* Streamlitのボタンに直接クラス指定できないため、キーや位置で視覚的メリハリをつけます */
-    
     /* 選択中のボタン（★）の強調デザイン */
     div.stButton > button[kind="primary"] {
-        background-color: #ff4b4b !important;
+        background-color: rgba(255, 75, 75, 0.9) !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
     }
@@ -66,6 +63,7 @@ st.markdown(
 
 # CSVファイルのパス
 CSV_FILE = "baseball_data.csv"
+BG_IMAGE_FILE = "strike_zone_bg.jpg"
 
 
 # --- 初期データの生成／読み込み ---
@@ -423,7 +421,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真の見た目を忠実に再現した「キャッチャー目線コース選択ボード」 ---
+  # --- ④ キャッチャー目線イラストを背景にしたコース選択ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -433,10 +431,16 @@ with tab1:
       f"##### 🥎 キャッチャー目線コース選択 ➔ 選択中: **{st.session_state.selected_course}番** {zone_label}"
   )
 
+  # 画像ファイルが存在する場合は背景として表示し、その上にボタンを配置
+  if os.path.exists(BG_IMAGE_FILE):
+    st.image(
+        BG_IMAGE_FILE,
+        caption="キャッチャー目線ストライクゾーン",
+        use_container_width=True,
+    )
+
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  # お写真の見た目（中央がストライクゾーン：明るく四角く囲まれている、周辺がボールゾーン）を
-  # 各ボタンのHTML/Markdownの枠組みで完全に視覚化して描画します
   for r in range(5):
     cols = st.columns(5)
     for c in range(5):
@@ -444,10 +448,8 @@ with tab1:
       is_selected = zone_num == st.session_state.selected_course
       is_strike = zone_num in strike_zones_set
 
-      # ボタンのプライマリ判定（選択中は赤く光る）
       btn_kind = "primary" if is_selected else "secondary"
 
-      # ラベルの見た目（ストライクゾーン内は分かりやすく [番号]、選択中は ★番号）
       if is_selected:
         label = f"★ {zone_num}"
       elif is_strike:
@@ -455,29 +457,14 @@ with tab1:
       else:
         label = f"{zone_num}"
 
-      with cols[c]:
-        # ストライクゾーン（中央の9マス）とボールゾーン（外周の16マス）で
-        # 見た目の背景色や枠の雰囲気がお写真のようになるよう、個別にボタンを配置
-        if is_strike:
-          # ストライクゾーン側のボタン（少し明るい見た目にするためのスタイリングを埋め込み）
-          if st.button(
-              label,
-              key=f"c_btn_{zone_num}",
-              type=btn_kind,
-              use_container_width=True,
-          ):
-            st.session_state.selected_course = zone_num
-            st.rerun()
-        else:
-          # 周囲のボールゾーン側のボタン
-          if st.button(
-              label,
-              key=f"c_btn_{zone_num}",
-              type=btn_kind,
-              use_container_width=True,
-          ):
-            st.session_state.selected_course = zone_num
-            st.rerun()
+      if cols[c].button(
+          label,
+          key=f"c_btn_{zone_num}",
+          type=btn_kind,
+          use_container_width=True,
+      ):
+        st.session_state.selected_course = zone_num
+        st.rerun()
 
   st.markdown("<br>", unsafe_allow_html=True)
 
