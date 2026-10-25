@@ -84,6 +84,7 @@ def load_or_init_data():
       "球種",
       "コース",
       "結果",
+      "打球方向",
   ]
 
   if not os.path.exists(CSV_FILE):
@@ -102,6 +103,7 @@ def load_or_init_data():
             "球種": "ストレート",
             "コース": 13,
             "結果": "空振り",
+            "打球方向": "-",
         }
     ])
     initial_data.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
@@ -126,7 +128,7 @@ st.title("⚾ データ分析＋α")
 tab1, tab2, tab3, tab4 = st.tabs([
     "📋 試合一覧",
     "📝 データ入力",
-    "🗂️ 打席一覧・1球データ詳細",
+    "🔍 打席検索",
     "🔥 配球ヒートマップ分析",
 ])
 
@@ -406,7 +408,8 @@ with tab2:
 
   st.markdown("---")
 
-  det_col1, det_col2, det_col3 = st.columns([1.2, 1.8, 2.2])
+  # --- カウント ＆ 球種 ＆ 結果（分離） ＆ 打球方向（独立） ---
+  det_col1, det_col2, det_col3, det_col4 = st.columns([1, 1.3, 1.7, 1.7])
 
   with det_col1:
     count_options = [
@@ -467,19 +470,19 @@ with tab2:
         "見逃しストライク",
         "空振り",
         "ファウル",
-        "安打（レフト前）",
-        "安打（センター前）",
-        "安打（ライト前）",
-        "長打（二塁打）",
-        "長打（三塁打）",
+        "安打",
+        "2塁打",
+        "3塁打",
         "本塁打",
-        "ゴロアウト（内野）",
-        "フライアウト（外野）",
+        "内野ゴロ",
+        "内野フライ",
+        "外野ゴロ",
+        "外野フライ",
         "空振り三振",
         "見逃し三振",
         "四球",
         "死球",
-        "その他（野手選択など）",
+        "その他",
     ]
 
     filtered_result_options = []
@@ -506,9 +509,43 @@ with tab2:
         else 0
     )
 
-    result = st.selectbox(
-        "結果（打球方向含む）", filtered_result_options, index=default_result_idx
-    )
+    result = st.selectbox("結果", filtered_result_options, index=default_result_idx)
+
+  with det_col4:
+    # 打球方向の選択肢（前に飛んでいないときは「-」を選択可能）
+    hit_direction_options = [
+        "-",
+        "レフト前",
+        "センター前",
+        "ライト前",
+        "レフト線",
+        "ライト線",
+        "センター頭上",
+        "レフト方向",
+        "センター方向",
+        "ライト方向",
+        "投前",
+        "捕前",
+        "一前",
+        "二前",
+        "三前",
+        "遊前",
+    ]
+
+    # 結果がボールや三振などの場合は自動で「-」にするか選択可能にする
+    if result in [
+        "ボール",
+        "見逃しストライク",
+        "空振り",
+        "ファウル",
+        "空振り三振",
+        "見逃し三振",
+        "四球",
+        "死球",
+    ]:
+      hit_direction = st.selectbox("打球方向・詳細", hit_direction_options, index=0)
+    else:
+      hit_direction = st.selectbox("打球方向・詳細", hit_direction_options)
 
   st.divider()
 
@@ -576,6 +613,7 @@ with tab2:
         "球種": pitch_type,
         "コース": st.session_state.selected_course,
         "結果": result,
+        "打球方向": hit_direction,
     }])
 
     new_data.to_csv(
@@ -608,7 +646,7 @@ with tab2:
     else:
       st.session_state.balls = 0
       st.session_state.strikes = 0
-      if "アウト" in result or "三振" in result:
+      if "ゴロ" in result or "フライ" in result or "三振" in result:
         st.session_state.outs = (current_outs + 1) if current_outs < 2 else 0
       is_at_bat_over = True
 
@@ -734,10 +772,10 @@ def render_comprehensive_filter(df, key_prefix="filter"):
 
 
 # ==========================================
-# 【タブ3】打席一覧・1球データ詳細
+# 【タブ3】打席検索
 # ==========================================
 with tab3:
-  st.subheader("🗂️ 打席一覧・1球データ詳細")
+  st.subheader("🔍 打席検索・1球データ詳細")
 
   df_all = pd.read_csv(CSV_FILE, encoding="utf-8-sig")
 
@@ -835,6 +873,7 @@ with tab3:
           "球種",
           "コース",
           "結果",
+          "打球方向",
       ]
       st.markdown(f"**【選択中の打席の全配球詳細】** `{selected_ab_label}`")
       st.dataframe(
@@ -900,6 +939,7 @@ with tab3:
                   "球種",
                   "コース",
                   "結果",
+                  "打球方向",
               ]
           )
           empty_df.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
