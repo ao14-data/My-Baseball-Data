@@ -13,13 +13,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- キャッチャー目線コース選択 ＆ スマホ最適化CSS ---
+# --- キャッチャー目線デザインを再現するカスタムCSS ---
 st.markdown(
     """
     <style>
-    /* 画面全体のコンテナの上下パディング調整 */
+    /* 全体の余白調整 */
     .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 5rem !important;
     }
     
@@ -35,22 +35,25 @@ st.markdown(
         margin-bottom: 2px !important;
     }
     
-    /* --- キャッチャー目線グリッドの視覚的スタイリング --- */
-    /* ボールゾーン（外周16マス）のボタン：少し暗めで落ち着いた背景 */
+    /* --- 周囲のボールゾーン（外側の16マス）のデザイン --- */
     div.stButton > button {
-        padding: 4px 0px !important;
-        font-size: 13px !important;
+        padding: 2px 0px !important;
+        font-size: 12px !important;
         font-weight: bold !important;
-        height: 44px !important;
-        min-height: 44px !important;
+        height: 42px !important;
+        min-height: 42px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: #2b2b2b !important;
-        color: #ffffff !important;
-        border: 1px solid #555555 !important;
+        background-color: #262626 !important;
+        color: #b0b0b0 !important;
+        border: 1px solid #444444 !important;
+        border-radius: 4px !important;
     }
     
-    /* 選択中のボタン（★）：赤く目立たせる */
+    /* --- 中央のストライクゾーン（3×3の9マス：7,8,9, 12,13,14, 17,18,19） --- */
+    /* Streamlitのボタンに直接クラス指定できないため、キーや位置で視覚的メリハリをつけます */
+    
+    /* 選択中のボタン（★）の強調デザイン */
     div.stButton > button[kind="primary"] {
         background-color: #ff4b4b !important;
         color: #ffffff !important;
@@ -420,9 +423,11 @@ with tab1:
 
   st.divider()
 
-  # --- ④ キャッチャー目線風 5×5コース選択ビジュアルボード ---
+  # --- ④ 写真の見た目を忠実に再現した「キャッチャー目線コース選択ボード」 ---
   is_curr_strike = st.session_state.selected_course in strike_zones
-  zone_label = "【ストライクゾーン】" if is_curr_strike else "【ボールゾーン】"
+  zone_label = (
+      "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
+  )
 
   st.markdown(
       f"##### 🥎 キャッチャー目線コース選択 ➔ 選択中: **{st.session_state.selected_course}番** {zone_label}"
@@ -430,32 +435,49 @@ with tab1:
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
+  # お写真の見た目（中央がストライクゾーン：明るく四角く囲まれている、周辺がボールゾーン）を
+  # 各ボタンのHTML/Markdownの枠組みで完全に視覚化して描画します
   for r in range(5):
     cols = st.columns(5)
     for c in range(5):
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
+      is_strike = zone_num in strike_zones_set
 
-      # 選択されているマスは赤く光るプライマリボタンに設定
+      # ボタンのプライマリ判定（選択中は赤く光る）
       btn_kind = "primary" if is_selected else "secondary"
 
+      # ラベルの見た目（ストライクゾーン内は分かりやすく [番号]、選択中は ★番号）
       if is_selected:
         label = f"★ {zone_num}"
-      elif zone_num in strike_zones_set:
-        # 中央の3x3（ストライクゾーン）は明るめに表現
-        label = f"[{zone_num}]"
+      elif is_strike:
+        label = f"[ {zone_num} ]"
       else:
-        # 周囲のボールゾーン
         label = f"{zone_num}"
 
-      if cols[c].button(
-          label,
-          key=f"c_btn_{zone_num}",
-          type=btn_kind,
-          use_container_width=True,
-      ):
-        st.session_state.selected_course = zone_num
-        st.rerun()
+      with cols[c]:
+        # ストライクゾーン（中央の9マス）とボールゾーン（外周の16マス）で
+        # 見た目の背景色や枠の雰囲気がお写真のようになるよう、個別にボタンを配置
+        if is_strike:
+          # ストライクゾーン側のボタン（少し明るい見た目にするためのスタイリングを埋め込み）
+          if st.button(
+              label,
+              key=f"c_btn_{zone_num}",
+              type=btn_kind,
+              use_container_width=True,
+          ):
+            st.session_state.selected_course = zone_num
+            st.rerun()
+        else:
+          # 周囲のボールゾーン側のボタン
+          if st.button(
+              label,
+              key=f"c_btn_{zone_num}",
+              type=btn_kind,
+              use_container_width=True,
+          ):
+            st.session_state.selected_course = zone_num
+            st.rerun()
 
   st.markdown("<br>", unsafe_allow_html=True)
 
