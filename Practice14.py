@@ -29,13 +29,13 @@ def get_base64_image(image_path):
 
 bg_base64 = get_base64_image(BG_IMAGE_FILE)
 
-# --- 写真とボタンを完璧に重ね合わせるためのCSS ---
+# --- 写真の比率を保ち、ボタンを綺麗に重ね合わせるためのCSS ---
 st.markdown(
     f"""
     <style>
     /* 画面全体のコンテナ余白調整 */
     .block-container {{
-        padding-top: 1rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 5rem !important;
     }}
     
@@ -51,32 +51,33 @@ st.markdown(
         margin-bottom: 2px !important;
     }}
     
-    /* --- キャッチャー目線ボード（写真を大きく引き伸ばし、ボタンを完全に重ねる） --- */
+    /* --- キャッチャー目線ボード（正方形を維持し、写真の上にボタンを重ねる） --- */
     .strike-zone-container {{
         position: relative;
         background-image: url("data:image/jpeg;base64,{bg_base64}");
-        background-size: 100% 100%;
+        background-size: contain;
         background-position: center;
         background-repeat: no-repeat;
-        padding: 10px;
-        border-radius: 8px;
+        aspect-ratio: 1 / 1;
         width: 100%;
-        max-width: 520px;
+        max-width: 420px;
         margin: 0 auto;
+        padding: 12px;
+        border-radius: 8px;
     }}
     
-    /* ボタンの背景を半透明にして、下の写真のマス目（25分割）をそのまま見せる */
+    /* ボタンの背景を半透明にして、下の写真のマス目（25分割）を透けさせる */
     .strike-zone-container div.stButton > button {{
         padding: 0px !important;
-        font-size: 13px !important;
+        font-size: 11px !important;
         font-weight: bold !important;
-        height: 48px !important;
-        min-height: 48px !important;
+        height: 38px !important;
+        min-height: 38px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: rgba(0, 0, 0, 0.35) !important;
+        background-color: rgba(0, 0, 0, 0.45) !important;
         color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.4) !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
         border-radius: 4px !important;
     }}
     
@@ -447,7 +448,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真を背景にし、その上に25マスのボタンを完全に重ねたボード ---
+  # --- ④ 写真を背景にしたキャッチャー目線コース選択ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -459,7 +460,7 @@ with tab1:
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  # 背景画像エリアの中に直接ボタンを配置して綺麗に重ねる
+  # 背景の正方形エリアの中に25マスのボタンを重ねる
   st.markdown('<div class="strike-zone-container">', unsafe_allow_html=True)
 
   for r in range(5):
