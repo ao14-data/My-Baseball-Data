@@ -15,7 +15,7 @@ st.set_page_config(
 
 CSV_FILE = "baseball_data.csv"
 
-# --- スマホ・PC両対応＆キャッチャー目線ボード専用の洗練されたCSS ---
+# --- キャッチャー目線ボード専用のイラスト風デザインCSS ---
 st.markdown(
     """
     <style>
@@ -34,36 +34,38 @@ st.markdown(
         padding: 0px 1px !important;
     }
     
-    /* --- キャッチャー目線ボードの外枠コンテナ --- */
+    /* --- キャッチャー目線ボード（球場・ホームベースの雰囲気） --- */
     .catcher-board {
-        background-color: #1a1a1a;
-        border: 3px solid #444;
-        border-radius: 10px;
-        padding: 10px;
-        max-width: 450px;
+        background: linear-gradient(135deg, #1b4d3e 0%, #0e2920 100%);
+        border: 4px solid #333333;
+        border-radius: 12px;
+        padding: 12px;
+        max-width: 440px;
         margin: 0 auto;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.4);
     }
     
-    /* 通常ボタンのデザイン（ボールゾーン） */
+    /* --- 外周のボールゾーンボタン ---
+       ※ 5x5グリッドで strike zone 以外（外側の16マス）に適用されるベーススタイル */
     .catcher-board div.stButton > button {
-        padding: 4px 0px !important;
+        padding: 2px 0px !important;
         font-size: 13px !important;
         font-weight: bold !important;
-        height: 44px !important;
-        min-height: 44px !important;
+        height: 45px !important;
+        min-height: 45px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: #2e2e2e !important;
-        color: #cccccc !important;
-        border: 1px solid #555555 !important;
+        background-color: rgba(20, 35, 30, 0.85) !important;
+        color: #a3c1ad !important;
+        border: 1px solid #3a5347 !important;
         border-radius: 4px !important;
     }
     
-    /* 選択中のボタン（★）の強調デザイン */
+    /* --- 選択中のボタン（★）の超強調デザイン --- */
     .catcher-board div.stButton > button[kind="primary"] {
         background-color: #ff4b4b !important;
         color: #ffffff !important;
-        border: 2px solid #ffffff !important;
+        border: 3px solid #ffffff !important;
     }
     
     [data-testid="stDataFrame"] {
@@ -432,7 +434,7 @@ with tab1:
 
   st.divider()
 
-  # --- ④ キャッチャー目線デザインの25分割コース選択ボード ---
+  # --- ④ ストライクゾーン（中央9マス）とボールゾーンが視覚的に分かる専用ボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
@@ -442,12 +444,12 @@ with tab1:
       f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
   st.caption(
-      "💡 中央の9マスがストライクゾーン、外周がボールゾーンです（ワンタップで確実選択）"
+      "🎯 中央のゴールド枠がストライクゾーンです（ワンタップで確実選択）"
   )
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  # キャッチャー目線ボードの枠組みを開始
+  # キャッチャー目線ボード（球場・ストライクゾーン枠を再現）を開始
   st.markdown('<div class="catcher-board">', unsafe_allow_html=True)
 
   for r in range(5):
@@ -457,19 +459,36 @@ with tab1:
       is_selected = zone_num == st.session_state.selected_course
       is_strike = zone_num in strike_zones_set
 
-      btn_kind = "primary" if is_selected else "secondary"
-
+      # 選択中なら赤、ストライクゾーンならゴールド系、ボールならダーク系
       if is_selected:
+        btn_kind = "primary"
         label = f"★ {zone_num}"
-      elif is_strike:
-        label = f"[{zone_num}]"
       else:
-        label = f"{zone_num}"
+        btn_kind = "secondary"
+        if is_strike:
+          label = f"◆ {zone_num}"  # ストライクゾーンの目印
+        else:
+          label = f"{zone_num}"
 
       with cols[c]:
+        # ストライクゾーンのボタンだけに特別なスタイル（ゴールド枠・茶系背景）をインライン/Markdownで付与
+        if is_strike and not is_selected:
+          st.markdown(
+              f"""
+                    <style>
+                    div[data-testid="column"]:nth-of-type({c+1}) button[kind="secondary"] {{
+                        background-color: #3b2219 !important;
+                        color: #ffeb3b !important;
+                        border: 2px solid #ffcc00 !important;
+                    }}
+                    </style>
+                    """,
+              unsafe_allow_html=True,
+          )
+
         if st.button(
             label,
-            key=f"pro_btn_{zone_num}",
+            key=f"zone_btn_{zone_num}",
             type=btn_kind,
             use_container_width=True,
         ):
