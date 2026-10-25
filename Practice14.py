@@ -18,7 +18,7 @@ CSV_FILE = "baseball_data.csv"
 BG_IMAGE_FILE = "strike_zone_bg.jpg"
 
 
-# --- 画像をBase64に変換してCSSで背景にするための関数 ---
+# --- 画像をBase64に変換してCSS背景にするための関数 ---
 def get_base64_image(image_path):
   if os.path.exists(image_path):
     with open(image_path, "rb") as f:
@@ -29,13 +29,13 @@ def get_base64_image(image_path):
 
 bg_base64 = get_base64_image(BG_IMAGE_FILE)
 
-# --- 写真とボタンを重ね合わせるためのカスタムCSS ---
+# --- 写真とボタンを完璧に重ね合わせるためのCSS ---
 st.markdown(
     f"""
     <style>
     /* 画面全体のコンテナ余白調整 */
     .block-container {{
-        padding-top: 1.5rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 5rem !important;
     }}
     
@@ -51,37 +51,38 @@ st.markdown(
         margin-bottom: 2px !important;
     }}
     
-    /* --- キャッチャー目線ボード（背景画像の上にボタンを重ねるコンテナ） --- */
+    /* --- キャッチャー目線ボード（写真を大きく引き伸ばし、ボタンを完全に重ねる） --- */
     .strike-zone-container {{
         position: relative;
         background-image: url("data:image/jpeg;base64,{bg_base64}");
-        background-size: contain;
+        background-size: 100% 100%;
         background-position: center;
         background-repeat: no-repeat;
-        padding: 12px;
+        padding: 10px;
         border-radius: 8px;
-        max-width: 450px;
+        width: 100%;
+        max-width: 520px;
         margin: 0 auto;
     }}
     
-    /* ボタンを半透明にして、下の写真のマス目が透けて見えるようにする */
+    /* ボタンの背景を半透明にして、下の写真のマス目（25分割）をそのまま見せる */
     .strike-zone-container div.stButton > button {{
-        padding: 2px 0px !important;
-        font-size: 12px !important;
+        padding: 0px !important;
+        font-size: 13px !important;
         font-weight: bold !important;
-        height: 42px !important;
-        min-height: 42px !important;
+        height: 48px !important;
+        min-height: 48px !important;
         margin: 1px !important;
         width: 100% !important;
-        background-color: rgba(20, 20, 20, 0.5) !important;
+        background-color: rgba(0, 0, 0, 0.35) !important;
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.4) !important;
         border-radius: 4px !important;
     }}
     
-    /* 選択中のボタン（★）の強調デザイン */
+    /* 選択中のボタン（★）は赤く目立たせる */
     .strike-zone-container div.stButton > button[kind="primary"] {{
-        background-color: rgba(255, 75, 75, 0.85) !important;
+        background-color: rgba(255, 75, 75, 0.9) !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
     }}
@@ -446,19 +447,19 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 写真を背景にしたキャッチャー目線コース選択ボード ---
+  # --- ④ 写真を背景にし、その上に25マスのボタンを完全に重ねたボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
   zone_label = (
       "⚡ 【ストライクゾーン】" if is_curr_strike else "🛡️ 【ボールゾーン】"
   )
 
   st.markdown(
-      f"##### 🥎 キャッチャー目線コース選択 ➔ 選択中: **{st.session_state.selected_course}番** {zone_label}"
+      f"##### 🥎 コース選択（📍 選択中: **{st.session_state.selected_course}番** {zone_label}）"
   )
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
 
-  # 背景画像の上にボタンを綺麗に重ね合わせるコンテナを開始
+  # 背景画像エリアの中に直接ボタンを配置して綺麗に重ねる
   st.markdown('<div class="strike-zone-container">', unsafe_allow_html=True)
 
   for r in range(5):
@@ -483,7 +484,7 @@ with tab1:
         st.session_state.selected_course = zone_num
         st.rerun()
 
-  st.markdown("</div>", unsafe_allow_html=True)  # コンテナ終了
+  st.markdown("</div>", unsafe_allow_html=True)
 
   st.markdown("<br>", unsafe_allow_html=True)
 
