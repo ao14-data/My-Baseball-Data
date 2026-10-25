@@ -218,6 +218,12 @@ with tab2:
   if "pitcher_name" not in st.session_state:
     st.session_state.pitcher_name = "あお"
 
+  # チーム名の初期化
+  if "away_team" not in st.session_state:
+    st.session_state.away_team = "先攻チーム"
+  if "home_team" not in st.session_state:
+    st.session_state.home_team = "後攻チーム"
+
   if "lineup" not in st.session_state:
     st.session_state.lineup = [
         {"name": "鈴木", "side": "R"},
@@ -248,15 +254,14 @@ with tab2:
   if "runner" not in st.session_state:
     st.session_state.runner = "なし"
   if "score_away" not in st.session_state:
-    st.session_state.score_away = 0  # 先攻（左側）
+    st.session_state.score_away = 0  # 先攻（左側）スコア
   if "score_home" not in st.session_state:
-    st.session_state.score_home = 0  # 後攻（右側）
+    st.session_state.score_home = 0  # 後攻（右側）スコア
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
   with st.expander(
-      "📅 試合情報（日付・試合名） & 👥 スタメン（1〜9番）編集",
-      expanded=False,
+      "📅 試合情報（日付・試合名・チーム名） & 👥 スタメン編集", expanded=True
   ):
     st.caption("📅 試合日")
     d_c1, d_c2, d_c3 = st.columns(3)
@@ -301,6 +306,19 @@ with tab2:
 
     raw_game_id = st.text_input("試合名", value=st.session_state.game_id)
     st.session_state.game_id = raw_game_id.strip() or "公式戦"
+
+    # --- チーム名入力欄の追加 ---
+    st.markdown("##### ⚾ 対戦チーム名")
+    team_c1, team_c2 = st.columns(2)
+    raw_away_team = team_c1.text_input(
+        "先攻チーム名（左側）", value=st.session_state.away_team
+    )
+    st.session_state.away_team = raw_away_team.strip() or "先攻"
+
+    raw_home_team = team_c2.text_input(
+        "後攻チーム名（右側）", value=st.session_state.home_team
+    )
+    st.session_state.home_team = raw_home_team.strip() or "後攻"
 
     st.markdown("---")
     st.markdown("##### 👥 スタメン（1〜9番）編集")
@@ -379,14 +397,15 @@ with tab2:
     )
     st.session_state.current_batter_side = batter_side
 
-  # --- スコアボード＆イニング・アウト・ランナーの表示 ---
+  # --- チーム名を反映したスコアボードの表示 ---
   st.markdown("---")
-  score_disp_col1, score_disp_col2, score_disp_col3 = st.columns([1, 1.5, 1])
+  score_disp_col1, score_disp_col2, score_disp_col3 = st.columns([1, 2, 1])
   with score_disp_col2:
     st.markdown(
-        f"<h3 style='text-align: center; margin: 0;'>🏟️ スコア: 先攻 <span"
-        f" style='color: #ff4b4b;'>{st.session_state.score_away}</span> - <span"
-        f" style='color: #29b5e8;'>{st.session_state.score_home}</span> 後攻</h3>",
+        f"<h3 style='text-align: center; margin: 0;'>🏟️ {st.session_state.away_team}"
+        f" <span style='color: #ff4b4b;'>{st.session_state.score_away}</span> -"
+        f" <span style='color: #29b5e8;'>{st.session_state.score_home}</span>"
+        f" {st.session_state.home_team}</h3>",
         unsafe_allow_html=True,
     )
 
@@ -672,9 +691,7 @@ with tab2:
     added_runs = 0
     new_runner = current_runner
 
-    # 得点発生の判定（簡易ルール）
     if result == "本塁打":
-      # 満塁ホームランなら4点、など（ランナー人数 + 1）
       run_map = {
           "なし": 1,
           "1塁": 2,
@@ -701,7 +718,6 @@ with tab2:
         added_runs = 1
         new_runner = "満塁"
       else:
-        # 通常の進塁
         if current_runner == "なし":
           new_runner = "1塁"
         elif current_runner == "1塁":
@@ -710,7 +726,11 @@ with tab2:
           new_runner = "1,3塁"
     elif result == "2塁打":
       if current_runner in ["3塁", "2,3塁", "1,3塁", "満塁"]:
-        added_runs = 1 if current_runner in ["3塁"] else (2 if current_runner in ["2,3塁", "1,3塁"] else 2)
+        added_runs = (
+            1
+            if current_runner in ["3塁"]
+            else (2 if current_runner in ["2,3塁", "1,3塁"] else 2)
+        )
       new_runner = "2塁"
     elif result == "3塁打":
       if current_runner != "なし":
@@ -736,7 +756,6 @@ with tab2:
         elif current_runner == "2,3塁":
           new_runner = "満塁"
 
-    # 表なら先攻（左）、裏なら後攻（右）のスコアに加算
     if added_runs > 0:
       if "表" in inning_str:
         st.session_state.score_away += added_runs
@@ -797,7 +816,6 @@ with tab2:
       elif result == "併殺打":
         added_outs = 2
 
-      # 打撃結果に応じたランナー・得点処理
       new_runner = process_runner_and_score(
           current_runner, result, current_inning
       )
@@ -807,7 +825,6 @@ with tab2:
         f"{st.session_state.score_away} - {st.session_state.score_home}"
     )
 
-    # データをCSVに保存
     new_data = pd.DataFrame([{
         "日付": str(formatted_date),
         "試合ID": st.session_state.game_id,
@@ -830,21 +847,17 @@ with tab2:
         CSV_FILE, mode="a", header=False, index=False, encoding="utf-8-sig"
     )
 
-    # --- アウト数・イニング・ランナーの自動更新ロジック ---
     if is_at_bat_over:
       new_total_outs = current_outs + added_outs
 
       if new_total_outs >= 3:
-        # 3アウト成立：次のイニングへ、アウト0、ランナーなし
         st.session_state.inning = get_next_inning(current_inning)
         st.session_state.outs = 0
         st.session_state.runner = "なし"
       else:
-        # 3アウト未満：アウト数とランナー状態を更新
         st.session_state.outs = new_total_outs
         st.session_state.runner = new_runner
 
-      # 打順を次へ進める
       next_index = (st.session_state.lineup_index + 1) % 9
       st.session_state.lineup_index = next_index
       next_player = st.session_state.lineup[next_index]
@@ -855,7 +868,8 @@ with tab2:
     new_b = st.session_state.balls
     new_s = st.session_state.strikes
     st.success(
-        f"✅ 登録完了しました！ ➔ 現在スコア: 【 {current_score_str} 】 / 次のカウント:"
+        f"✅ 登録完了しました！ ➔ 現在スコア ({st.session_state.away_team} vs"
+        f" {st.session_state.home_team}): 【 {current_score_str} 】 / 次のカウント:"
         f" 【 B: {new_b} - S: {new_s} 】"
     )
 
@@ -1271,10 +1285,10 @@ with tab4:
 
       st.plotly_chart(
           fig,
-            use_container_width=True,
-            config={
-                "scrollZoom": False,
-                "displayModeBar": False,
-                "staticPlot": True,
-            },
-        )
+          use_container_width=True,
+          config={
+              "scrollZoom": False,
+              "displayModeBar": False,
+              "staticPlot": True,
+          },
+      )
