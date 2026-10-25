@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- スマホ・PC両対応の最適化CSS（表の拡大・横スクロールや不要な操作を防止） ---
+# --- キャッチャー目線コース選択 ＆ スマホ最適化CSS ---
 st.markdown(
     """
     <style>
@@ -23,35 +23,38 @@ st.markdown(
         padding-bottom: 5rem !important;
     }
     
-    /* カラムの間隔を整える */
+    /* 5等分のカラムを強制固定 */
     [data-testid="column"] {
         min-width: 0px !important;
         flex: 1 1 0px !important;
-        padding: 0px 2px !important;
+        padding: 0px 1px !important;
     }
     
-    /* セレクトボックス等の高さを確保して押しやすくする */
+    /* セレクトボックス等の高さを確保 */
     div.stSelectbox, div.stTextInput, div.stRadio {
         margin-bottom: 2px !important;
     }
     
-    /* 5×5コース選択ボタンのサイズ調整 */
+    /* --- キャッチャー目線グリッドの視覚的スタイリング --- */
+    /* ボールゾーン（外周16マス）のボタン：少し暗めで落ち着いた背景 */
     div.stButton > button {
         padding: 4px 0px !important;
         font-size: 13px !important;
         font-weight: bold !important;
-        height: 42px !important;
-        min-height: 42px !important;
-        margin: 2px 0px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        margin: 1px !important;
         width: 100% !important;
+        background-color: #2b2b2b !important;
+        color: #ffffff !important;
+        border: 1px solid #555555 !important;
     }
     
-    /* 表（DataFrame）が勝手に横に動いたり拡大したりするのを防ぐ固定スタイル */
-    [data-testid="stDataFrame"] {
-        overflow-x: hidden !important;
-    }
-    [data-testid="stDataFrame"] > div {
-        overflow-x: hidden !important;
+    /* 選択中のボタン（★）：赤く目立たせる */
+    div.stButton > button[kind="primary"] {
+        background-color: #ff4b4b !important;
+        color: #ffffff !important;
+        border: 2px solid #ffffff !important;
     }
     </style>
     """,
@@ -417,12 +420,12 @@ with tab1:
 
   st.divider()
 
-  # --- ④ 25分割コース選択グリッド ---
+  # --- ④ キャッチャー目線風 5×5コース選択ビジュアルボード ---
   is_curr_strike = st.session_state.selected_course in strike_zones
-  zone_label = "ストライクゾーン" if is_curr_strike else "ボールゾーン"
+  zone_label = "【ストライクゾーン】" if is_curr_strike else "【ボールゾーン】"
 
   st.markdown(
-      f"##### 🎯 コース選択（📍 選択中: **{st.session_state.selected_course}番** / **{zone_label}**）"
+      f"##### 🥎 キャッチャー目線コース選択 ➔ 選択中: **{st.session_state.selected_course}番** {zone_label}"
   )
 
   strike_zones_set = {7, 8, 9, 12, 13, 14, 17, 18, 19}
@@ -433,19 +436,22 @@ with tab1:
       zone_num = r * 5 + c + 1
       is_selected = zone_num == st.session_state.selected_course
 
-      btn_type = "primary" if is_selected else "secondary"
+      # 選択されているマスは赤く光るプライマリボタンに設定
+      btn_kind = "primary" if is_selected else "secondary"
 
       if is_selected:
-        label = f"★{zone_num}"
+        label = f"★ {zone_num}"
       elif zone_num in strike_zones_set:
+        # 中央の3x3（ストライクゾーン）は明るめに表現
         label = f"[{zone_num}]"
       else:
+        # 周囲のボールゾーン
         label = f"{zone_num}"
 
       if cols[c].button(
           label,
           key=f"c_btn_{zone_num}",
-          type=btn_type,
+          type=btn_kind,
           use_container_width=True,
       ):
         st.session_state.selected_course = zone_num
@@ -680,7 +686,6 @@ with tab2:
       st.markdown(
           f"##### 📋 抽出された打席一覧（条件に合致する球が含まれる打席: **{len(df_ab_summary)}件**）"
       )
-      # --- ★ 表の操作・拡大を無効化（静的表示） ---
       st.dataframe(
           df_ab_summary.drop(columns=["打席ID"]),
           use_container_width=True,
@@ -715,7 +720,6 @@ with tab2:
 
       display_cols = ["球数", "カウント(B-S)", "球種", "コース", "結果"]
       st.markdown(f"**【選択中の打席の全配球詳細】** `{selected_ab_label}`")
-      # --- ★ 表の操作・拡大を無効化（静的表示） ---
       st.dataframe(
           selected_pitches[display_cols],
           use_container_width=True,
@@ -821,7 +825,6 @@ with tab3:
       sum_col1, sum_col2 = st.columns([1, 1.2])
 
       with sum_col1:
-        # --- ★ 表の操作・拡大を無効化（静的表示） ---
         st.dataframe(
             pitch_summary, use_container_width=True, hide_index=True
         )
