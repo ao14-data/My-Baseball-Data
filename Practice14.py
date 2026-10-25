@@ -79,6 +79,7 @@ def load_or_init_data():
       "イニング",
       "アウト数",
       "ランナー",
+      "スコア(先攻-後攻)",
       "ボール",
       "ストライク",
       "球種",
@@ -98,6 +99,7 @@ def load_or_init_data():
             "イニング": "1回表",
             "アウト数": 0,
             "ランナー": "なし",
+            "スコア(先攻-後攻)": "0 - 0",
             "ボール": 0,
             "ストライク": 0,
             "球種": "ストレート",
@@ -149,9 +151,15 @@ with tab1:
       pitchers = ", ".join(g_df["投手名"].dropna().unique())
       total_pitches = len(g_df)
       unique_batters = g_df["打者名"].nunique()
+      last_score = (
+          g_df["スコア(先攻-後攻)"].iloc[-1]
+          if "スコア(先攻-後攻)" in g_df.columns
+          else "0 - 0"
+      )
       game_summary_list.append({
           "日付": date_str,
           "試合名": game_id,
+          "最終スコア": last_score,
           "登板投手": pitchers,
           "総投球数": total_pitches,
           "対戦打者数": unique_batters,
@@ -197,6 +205,7 @@ with tab1:
 with tab2:
   today = date.today()
 
+  # --- セッション状態の初期化 ---
   if "year" not in st.session_state:
     st.session_state.year = today.year
   if "month" not in st.session_state:
@@ -230,8 +239,18 @@ with tab2:
     st.session_state.balls = 0
   if "strikes" not in st.session_state:
     st.session_state.strikes = 0
+
+  # イニング・アウト・ランナー・スコアの状態をセッション管理
+  if "inning" not in st.session_state:
+    st.session_state.inning = "1回表"
   if "outs" not in st.session_state:
     st.session_state.outs = 0
+  if "runner" not in st.session_state:
+    st.session_state.runner = "なし"
+  if "score_away" not in st.session_state:
+    st.session_state.score_away = 0  # 先攻（左側）
+  if "score_home" not in st.session_state:
+    st.session_state.score_home = 0  # 後攻（右側）
 
   strike_zones = [7, 8, 9, 12, 13, 14, 17, 18, 19]
 
@@ -360,36 +379,61 @@ with tab2:
     )
     st.session_state.current_batter_side = batter_side
 
+  # --- スコアボード＆イニング・アウト・ランナーの表示 ---
+  st.markdown("---")
+  score_disp_col1, score_disp_col2, score_disp_col3 = st.columns([1, 1.5, 1])
+  with score_disp_col2:
+    st.markdown(
+        f"<h3 style='text-align: center; margin: 0;'>🏟️ スコア: 先攻 <span"
+        f" style='color: #ff4b4b;'>{st.session_state.score_away}</span> - <span"
+        f" style='color: #29b5e8;'>{st.session_state.score_home}</span> 後攻</h3>",
+        unsafe_allow_html=True,
+    )
+
   info_col1, info_col2, info_col3 = st.columns(3)
 
+  inning_options = [
+      "1回表",
+      "1回裏",
+      "2回表",
+      "2回裏",
+      "3回表",
+      "3回裏",
+      "4回表",
+      "4回裏",
+      "5回表",
+      "5回裏",
+      "6回表",
+      "6回裏",
+      "7回表",
+      "7回裏",
+      "8回表",
+      "8回裏",
+      "9回表",
+      "9回裏",
+      "延長1回表〜",
+  ]
+
   with info_col1:
-    inning_options = [
-        "1回表",
-        "1回裏",
-        "2回表",
-        "2回裏",
-        "3回表",
-        "3回裏",
-        "4回表",
-        "4回裏",
-        "5回表",
-        "5回裏",
-        "6回表",
-        "6回裏",
-        "7回表",
-        "7回裏",
-        "8回表",
-        "8回裏",
-        "9回表",
-        "9回裏",
-        "延長1回表〜",
-    ]
-    selected_inning = st.selectbox("イニング", inning_options)
+    inning_idx = (
+        inning_options.index(st.session_state.inning)
+        if st.session_state.inning in inning_options
+        else 0
+    )
+    selected_inning = st.selectbox(
+        "イニング", inning_options, index=inning_idx, key="inning_selectbox"
+    )
+    st.session_state.inning = selected_inning
 
   with info_col2:
     out_options = [0, 1, 2]
+    out_idx = (
+        out_options.index(st.session_state.outs)
+        if st.session_state.outs in out_options
+        else 0
+    )
     selected_outs = st.selectbox(
-        "アウト数", out_options, index=st.session_state.outs
+        "アウト数", out_options, index=out_idx, key="outs_selectbox"
     )
     st.session_state.outs = selected_outs
 
@@ -404,11 +448,19 @@ with tab2:
         "2,3塁",
         "満塁",
     ]
-    selected_runner = st.selectbox("ランナー", runner_options)
+    runner_idx = (
+        runner_options.index(st.session_state.runner)
+        if st.session_state.runner in runner_options
+        else 0
+    )
+    selected_runner = st.selectbox(
+        "ランナー", runner_options, index=runner_idx, key="runner_selectbox"
+    )
+    st.session_state.runner = selected_runner
 
   st.markdown("---")
 
-  # --- カウント ＆ 球種 ＆ 結果 ＆ 打球方向（シンプル化された13方向） ---
+  # --- カウント ＆ 球種 ＆ 結果 ＆ 打球方向 ---
   det_col1, det_col2, det_col3, det_col4 = st.columns([1, 1.3, 1.7, 1.7])
 
   with det_col1:
@@ -516,7 +568,6 @@ with tab2:
     result = st.selectbox("結果", filtered_result_options, index=default_result_idx)
 
   with det_col4:
-    # ご指定の13個のシンプルな打球方向リスト
     hit_direction_options = [
         "-",
         "ピッチャー",
@@ -534,7 +585,6 @@ with tab2:
         "ライト線",
     ]
 
-    # ボールや三振、ファウルなどの場合は自動で「-」を選択
     if result in [
         "ボール",
         "見逃しストライク",
@@ -596,20 +646,178 @@ with tab2:
 
   st.markdown("<br>", unsafe_allow_html=True)
 
+
+  # --- 次のイニングを計算する関数 ---
+  def get_next_inning(current_inning):
+    if "表" in current_inning:
+      return current_inning.replace("表", "裏")
+    elif "裏" in current_inning:
+      match = re.search(r"(\d+)回裏", current_inning)
+      if match:
+        num = int(match.group(1))
+        if num < 9:
+          return f"{num+1}回表"
+        else:
+          return "延長1回表〜"
+      elif "延長" in current_inning:
+        match_ext = re.search(r"延長(\d+)回裏", current_inning)
+        if match_ext:
+          num = int(match_ext.group(1))
+          return f"延長{num+1}回表〜"
+    return current_inning
+
+
+  # --- ランナー・得点更新の簡易シミュレーション関数 ---
+  def process_runner_and_score(current_runner, result, inning_str):
+    added_runs = 0
+    new_runner = current_runner
+
+    # 得点発生の判定（簡易ルール）
+    if result == "本塁打":
+      # 満塁ホームランなら4点、など（ランナー人数 + 1）
+      run_map = {
+          "なし": 1,
+          "1塁": 2,
+          "2塁": 2,
+          "3塁": 2,
+          "1,2塁": 3,
+          "1,3塁": 3,
+          "2,3塁": 3,
+          "満塁": 4,
+      }
+      added_runs = run_map.get(current_runner, 1)
+      new_runner = "なし"
+    elif result in ["安打", "エラー", "フィルダースチョイス"]:
+      if current_runner == "3塁":
+        added_runs = 1
+        new_runner = "1塁"
+      elif current_runner == "2,3塁":
+        added_runs = 2
+        new_runner = "1,2塁"
+      elif current_runner == "1,3塁":
+        added_runs = 1
+        new_runner = "1,2塁"
+      elif current_runner == "満塁":
+        added_runs = 1
+        new_runner = "満塁"
+      else:
+        # 通常の進塁
+        if current_runner == "なし":
+          new_runner = "1塁"
+        elif current_runner == "1塁":
+          new_runner = "1,2塁"
+        elif current_runner == "2塁":
+          new_runner = "1,3塁"
+    elif result == "2塁打":
+      if current_runner in ["3塁", "2,3塁", "1,3塁", "満塁"]:
+        added_runs = 1 if current_runner in ["3塁"] else (2 if current_runner in ["2,3塁", "1,3塁"] else 2)
+      new_runner = "2塁"
+    elif result == "3塁打":
+      if current_runner != "なし":
+        added_runs = current_runner.count(",") + 1 if "," in current_runner else 1
+      new_runner = "3塁"
+    elif result in ["四球", "死球"]:
+      if current_runner == "満塁":
+        added_runs = 1
+        new_runner = "満塁"
+      else:
+        if current_runner == "なし":
+          new_runner = "1塁"
+        elif current_runner == "1塁":
+          new_runner = "1,2塁"
+        elif current_runner == "2塁":
+          new_runner = "1,2塁"
+        elif current_runner == "3塁":
+          new_runner = "1,3塁"
+        elif current_runner == "1,2塁":
+          new_runner = "満塁"
+        elif current_runner == "1,3塁":
+          new_runner = "満塁"
+        elif current_runner == "2,3塁":
+          new_runner = "満塁"
+
+    # 表なら先攻（左）、裏なら後攻（右）のスコアに加算
+    if added_runs > 0:
+      if "表" in inning_str:
+        st.session_state.score_away += added_runs
+      elif "裏" in inning_str:
+        st.session_state.score_home += added_runs
+
+    return new_runner
+
+
+  # --- 登録ボタン ---
   if st.button("💾 この投球を登録して次へ", type="primary", use_container_width=True):
     current_b = st.session_state.balls
     current_s = st.session_state.strikes
     current_outs = st.session_state.outs
+    current_runner = st.session_state.runner
+    current_inning = st.session_state.inning
 
+    is_at_bat_over = False
+    added_outs = 0
+    new_runner = current_runner
+
+    if result == "ボール":
+      if current_b < 3:
+        st.session_state.balls += 1
+      else:
+        st.session_state.balls = 0
+        st.session_state.strikes = 0
+        added_outs = 0
+        new_runner = process_runner_and_score(
+            current_runner, "四球", current_inning
+        )
+        is_at_bat_over = True
+    elif result in ["見逃しストライク", "空振り"]:
+      if current_s < 2:
+        st.session_state.strikes += 1
+      else:
+        st.session_state.balls = 0
+        st.session_state.strikes = 0
+        added_outs = 1
+        is_at_bat_over = True
+    elif result == "ファウル":
+      if current_s < 2:
+        st.session_state.strikes += 1
+    else:
+      st.session_state.balls = 0
+      st.session_state.strikes = 0
+
+      if result in [
+          "ゴロ",
+          "フライ",
+          "空振り三振",
+          "見逃し三振",
+          "ファールフライ",
+          "犠打飛",
+          "振り逃げ",
+      ]:
+        added_outs = 1
+      elif result == "併殺打":
+        added_outs = 2
+
+      # 打撃結果に応じたランナー・得点処理
+      new_runner = process_runner_and_score(
+          current_runner, result, current_inning
+      )
+      is_at_bat_over = True
+
+    current_score_str = (
+        f"{st.session_state.score_away} - {st.session_state.score_home}"
+    )
+
+    # データをCSVに保存
     new_data = pd.DataFrame([{
         "日付": str(formatted_date),
         "試合ID": st.session_state.game_id,
         "投手名": st.session_state.pitcher_name,
         "打者名": st.session_state.batter_name,
         "打者左右": batter_side,
-        "イニング": selected_inning,
+        "イニング": current_inning,
         "アウト数": current_outs,
-        "ランナー": selected_runner,
+        "ランナー": current_runner,
+        "スコア(先攻-後攻)": current_score_str,
         "ボール": current_b,
         "ストライク": current_s,
         "球種": pitch_type,
@@ -622,46 +830,21 @@ with tab2:
         CSV_FILE, mode="a", header=False, index=False, encoding="utf-8-sig"
     )
 
-    is_at_bat_over = False
-
-    if result == "ボール":
-      if current_b < 3:
-        st.session_state.balls += 1
-      else:
-        st.session_state.balls = 0
-        st.session_state.strikes = 0
-        current_outs = min(2, current_outs + 1)
-        is_at_bat_over = True
-    elif result in ["見逃しストライク", "空振り"]:
-      if current_s < 2:
-        st.session_state.strikes += 1
-      else:
-        st.session_state.balls = 0
-        st.session_state.strikes = 0
-        st.session_state.outs = (
-            (current_outs + 1) if current_outs < 2 else 0
-        )
-        is_at_bat_over = True
-    elif result == "ファウル":
-      if current_s < 2:
-        st.session_state.strikes += 1
-    else:
-      st.session_state.balls = 0
-      st.session_state.strikes = 0
-      if result in [
-          "ゴロ",
-          "フライ",
-          "空振り三振",
-          "見逃し三振",
-          "ファールフライ",
-          "犠打飛",
-          "併殺打",
-      ]:
-        add_outs = 2 if result == "併殺打" else 1
-        st.session_state.outs = min(2, current_outs + add_outs)
-      is_at_bat_over = True
-
+    # --- アウト数・イニング・ランナーの自動更新ロジック ---
     if is_at_bat_over:
+      new_total_outs = current_outs + added_outs
+
+      if new_total_outs >= 3:
+        # 3アウト成立：次のイニングへ、アウト0、ランナーなし
+        st.session_state.inning = get_next_inning(current_inning)
+        st.session_state.outs = 0
+        st.session_state.runner = "なし"
+      else:
+        # 3アウト未満：アウト数とランナー状態を更新
+        st.session_state.outs = new_total_outs
+        st.session_state.runner = new_runner
+
+      # 打順を次へ進める
       next_index = (st.session_state.lineup_index + 1) % 9
       st.session_state.lineup_index = next_index
       next_player = st.session_state.lineup[next_index]
@@ -672,7 +855,8 @@ with tab2:
     new_b = st.session_state.balls
     new_s = st.session_state.strikes
     st.success(
-        f"✅ 登録完了しました！ ➔ 次のカウント: 【 B: {new_b} - S: {new_s} 】"
+        f"✅ 登録完了しました！ ➔ 現在スコア: 【 {current_score_str} 】 / 次のカウント:"
+        f" 【 B: {new_b} - S: {new_s} 】"
     )
 
     st.markdown(
@@ -880,6 +1064,7 @@ with tab3:
           "イニング",
           "アウト数",
           "ランナー",
+          "スコア(先攻-後攻)",
           "カウント(B-S)",
           "球種",
           "コース",
@@ -945,6 +1130,7 @@ with tab3:
                   "イニング",
                   "アウト数",
                   "ランナー",
+                  "スコア(先攻-後攻)",
                   "ボール",
                   "ストライク",
                   "球種",
@@ -1085,10 +1271,10 @@ with tab4:
 
       st.plotly_chart(
           fig,
-          use_container_width=True,
-          config={
-              "scrollZoom": False,
-              "displayModeBar": False,
-              "staticPlot": True,
-          },
-      )
+            use_container_width=True,
+            config={
+                "scrollZoom": False,
+                "displayModeBar": False,
+                "staticPlot": True,
+            },
+        )
